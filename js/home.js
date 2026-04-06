@@ -2,12 +2,6 @@ import { getBoxes, getTasks, addTask } from './db.js';
 import { navigate, openSheet } from './app.js';
 import { openAIExtractSheet } from './ai-extract.js';
 
-function getStats() {
-  const tasks = getTasks();
-  const done = tasks.filter((t) => t.isCompleted).length;
-  return { total: tasks.length, done };
-}
-
 function cardSizeClass(box) {
   if (box.sortOrder === 0) return 'large';
   if (box.sortOrder === 1 || box.sortOrder === 2) return 'mid';
@@ -17,7 +11,6 @@ function cardSizeClass(box) {
 export function renderHome(app) {
   const boxes = getBoxes();
   const tasks = getTasks();
-  const stats = getStats();
 
   app.innerHTML = `
     <main id="home" class="page">
@@ -29,21 +22,20 @@ export function renderHome(app) {
         </div>
       </header>
 
-      <section class="today-card">
-        <p>今日共 ${stats.total} 项任务 · 已完成 ${stats.done} 项</p>
-        <div class="progress"><span style="width:${stats.total ? Math.round((stats.done / stats.total) * 100) : 0}%"></span></div>
-      </section>
-
       <section class="box-grid scroll-area">
         ${boxes.map((b) => {
           const boxTasks = tasks.filter((t) => t.boxId === b.id);
-          const pending = boxTasks.filter((t) => !t.isCompleted).length;
+          const pendingTasks = boxTasks.filter((t) => !t.isCompleted);
           const finished = boxTasks.filter((t) => t.isCompleted).length;
           const pct = boxTasks.length ? Math.round((finished / boxTasks.length) * 100) : 0;
+          const importantPreview = b.sortOrder === 0
+            ? `<ul class="important-preview">${pendingTasks.slice(0, 3).map((t) => `<li>${t.content}</li>`).join('')}</ul>`
+            : `<div class="box-main"><b>${pendingTasks.length}</b><small>项待完成</small></div>`;
+
           return `
             <button class="box-card ${cardSizeClass(b)} ${b.color}" data-box-id="${b.id}">
               <div class="box-head"><strong>${b.name}</strong><span>${b.icon}</span></div>
-              <div class="box-main"><b>${pending}</b><small>项待完成</small></div>
+              ${importantPreview}
               <div class="progress"><span style="width:${pct}%"></span></div>
             </button>
           `;
@@ -58,9 +50,7 @@ export function renderHome(app) {
     </main>
   `;
 
-  app.querySelectorAll('.box-card').forEach((el) => {
-    el.addEventListener('click', () => navigate(`#box/${el.dataset.boxId}`));
-  });
+  app.querySelectorAll('.box-card').forEach((el) => el.addEventListener('click', () => navigate(`#box/${el.dataset.boxId}`)));
   app.querySelector('#settingsBtn').addEventListener('click', () => navigate('#settings'));
   app.querySelector('#aiTopBtn').addEventListener('click', openAIExtractSheet);
 

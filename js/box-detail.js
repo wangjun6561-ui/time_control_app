@@ -61,14 +61,15 @@ function taskItem(t, color) {
   const overdue = t.dueDate && !t.isCompleted && new Date(t.dueDate) < new Date();
   return `
     <article class="task-item ${t.isCompleted ? 'done' : ''}" data-id="${t.id}">
-      <span class="priority p${t.priority}"></span>
-      <button class="check ${color} ${t.isCompleted ? 'checked' : ''}">${t.isCompleted ? '✓' : ''}</button>
-      <button class="task-content" data-action="edit">
-        <span>${t.content}</span>
-        ${t.dueDate ? `<small class="${overdue ? 'overdue' : ''}">${new Date(t.dueDate).toLocaleDateString()}</small>` : ''}
-      </button>
-      <span class="grip">⋮⋮</span>
       <button class="delete-btn">删除</button>
+      <div class="task-main" data-main="1">
+        <button class="check ${color} p${t.priority} ${t.isCompleted ? 'checked' : ''}">${t.isCompleted ? '✓' : ''}</button>
+        <button class="task-content" data-action="edit">
+          <span>${t.content}</span>
+          ${t.dueDate ? `<small class="${overdue ? 'overdue' : ''}">${new Date(t.dueDate).toLocaleDateString()}</small>` : ''}
+        </button>
+        <span class="grip">⋮⋮</span>
+      </div>
     </article>
   `;
 }
@@ -76,7 +77,8 @@ function taskItem(t, color) {
 function bindTaskEvents(app, box) {
   app.querySelectorAll('.task-item').forEach((item) => {
     const taskId = item.dataset.id;
-    item.querySelector('.check').addEventListener('click', () => {
+    item.querySelector('.check').addEventListener('click', (e) => {
+      e.stopPropagation();
       const checked = item.classList.contains('done');
       updateTask(taskId, { isCompleted: !checked, completedAt: checked ? null : new Date().toISOString() });
       playSound('complete');
@@ -84,7 +86,9 @@ function bindTaskEvents(app, box) {
     });
 
     item.querySelector('[data-action="edit"]').addEventListener('click', () => openTaskEditor({ taskId, boxId: box.id }, () => renderBoxDetail(app, box.id)));
-    item.querySelector('.delete-btn').addEventListener('click', () => {
+
+    item.querySelector('.delete-btn').addEventListener('click', (e) => {
+      e.stopPropagation();
       deleteTask(taskId);
       renderBoxDetail(app, box.id);
     });
@@ -96,6 +100,7 @@ function bindTaskEvents(app, box) {
 }
 
 function bindSwipeDelete(item) {
+  const main = item.querySelector('.task-main');
   let sx = 0;
   let sy = 0;
   let dx = 0;
@@ -113,7 +118,8 @@ function bindSwipeDelete(item) {
     dy = e.touches[0].clientY - sy;
 
     if (Math.abs(dx) > Math.abs(dy) && dx < 0) {
-      item.style.transform = `translateX(${Math.max(dx, -88)}px)`;
+      const x = Math.max(dx, -88);
+      main.style.transform = `translateX(${x}px)`;
       if (Math.abs(dx) > 10) item.classList.add('delete-revealing');
     }
   }, { passive: true });
@@ -121,10 +127,10 @@ function bindSwipeDelete(item) {
   item.addEventListener('touchend', () => {
     if (dx < -60 && Math.abs(dx) > Math.abs(dy)) {
       item.classList.add('swiped');
-      item.style.transform = 'translateX(-88px)';
+      main.style.transform = 'translateX(-88px)';
     } else {
       item.classList.remove('swiped', 'delete-revealing');
-      item.style.transform = '';
+      main.style.transform = '';
     }
   });
 }
