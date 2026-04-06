@@ -113,7 +113,7 @@ function setupKeyboardInsets() {
 async function tryCloudPull() {
   try {
     const result = await pullDataFromCloud();
-    if (result === 'updated') showToast('已从云端同步最新数据');
+    if (result === 'merged') showToast('已自动合并云端数据');
   } catch {
     // no-op
   }

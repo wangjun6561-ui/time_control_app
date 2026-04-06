@@ -76,13 +76,13 @@ function normalize(data = {}) {
       const orderMap = { '重要盒': 0, '放松盒': 1, '奖励盒': 2, '待办盒': 3, '惩罚盒': 4 };
       return { ...b, name: renamed, sortOrder: orderMap[renamed] ?? b.sortOrder ?? 99 };
     }),
-    tasks: Array.isArray(data.tasks) ? data.tasks : [],
+    tasks: (Array.isArray(data.tasks) ? data.tasks : []).map((t) => ({ ...t, weight: t.weight ?? 1 })),
     settings: {
       deepseekApiKey: data.settings?.deepseekApiKey || '',
       themeMode: data.settings?.themeMode || 'system',
       soundEnabled: data.settings?.soundEnabled ?? true,
       cloudEnabled: data.settings?.cloudEnabled ?? false,
-      cloudEndpoint: data.settings?.cloudEndpoint || '',
+      cloudEndpoint: data.settings?.cloudEndpoint || './cloud-sync.json',
       cloudToken: data.settings?.cloudToken || '',
     },
     meta: {
@@ -102,6 +102,7 @@ function seed() {
     isCompleted: false,
     sortOrder: i,
     priority: 2,
+    weight: 1,
     dueDate: null,
     completedAt: null,
     createdAt: now,
@@ -109,7 +110,7 @@ function seed() {
   const initial = normalize({
     boxes,
     tasks,
-    settings: { deepseekApiKey: '', themeMode: 'system', soundEnabled: true, cloudEnabled: false, cloudEndpoint: '', cloudToken: '' },
+    settings: { deepseekApiKey: '', themeMode: 'system', soundEnabled: true, cloudEnabled: false, cloudEndpoint: './cloud-sync.json', cloudToken: '' },
     meta: { updatedAt: now },
   });
   localStorage.setItem(STORAGE_KEY, JSON.stringify(initial));
@@ -157,6 +158,7 @@ export function addTask(task) {
       content: task.content,
       boxId: task.boxId,
       priority: task.priority ?? 2,
+      weight: task.weight ?? 1,
       dueDate: task.dueDate ?? null,
       isCompleted: false,
       sortOrder: maxOrder + 1,
@@ -252,6 +254,44 @@ export async function pushDataToCloud() {
   return true;
 }
 
+
+function dedupeTasks(tasks) {
+  const seen = new Set();
+  return tasks.filter((t) => {
+    const key = [t.boxId, t.content?.trim(), t.isCompleted, t.dueDate || '', t.priority || 2].join('::');
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function mergeData(local, cloud) {
+  const merged = normalize({
+    ...local,
+    boxes: [...local.boxes, ...cloud.boxes],
+    tasks: [...local.tasks, ...cloud.tasks],
+    meta: { updatedAt: new Date().toISOString() },
+  });
+
+  const chosenByName = new Map();
+  const idRemap = new Map();
+  merged.boxes.forEach((b) => {
+    if (!chosenByName.has(b.name)) chosenByName.set(b.name, b);
+    idRemap.set(b.id, chosenByName.get(b.name).id);
+  });
+
+  merged.boxes = Array.from(chosenByName.values()).map((b, i) => ({ ...b, sortOrder: i }));
+  const validBoxIds = new Set(merged.boxes.map((b) => b.id));
+
+  merged.tasks = dedupeTasks(
+    merged.tasks
+      .map((t) => ({ ...t, boxId: idRemap.get(t.boxId) || t.boxId }))
+      .filter((t) => validBoxIds.has(t.boxId))
+  );
+
+  return merged;
+}
+
 export async function pullDataFromCloud() {
   const local = getData();
   const { cloudEnabled, cloudEndpoint, cloudToken } = local.settings;
@@ -266,10 +306,8 @@ export async function pullDataFromCloud() {
   if (!response.ok) throw new Error('cloud pull failed');
 
   const cloudData = normalize(await response.json());
-  if (new Date(cloudData.meta.updatedAt) > new Date(local.meta.updatedAt)) {
-    saveData({ ...cloudData, settings: { ...cloudData.settings, deepseekApiKey: local.settings.deepseekApiKey } }, { skipCloud: true });
-    return 'updated';
-  }
-
-  return 'kept-local';
+  const merged = mergeData(local, cloudData);
+  merged.settings = { ...merged.settings, deepseekApiKey: local.settings.deepseekApiKey };
+  saveData(merged, { skipCloud: true });
+  return 'merged';
 }

@@ -38,7 +38,7 @@ export function renderSettings(app) {
           <label class="switch"><input id="cloudEnabled" type="checkbox" ${settings.cloudEnabled ? 'checked' : ''}><span></span></label>
         </label>
         <label>云端接口 URL（支持 GET/PUT 返回/接收 JSON）
-          <input id="cloudEndpoint" class="input" value="${settings.cloudEndpoint || ''}" placeholder="https://example.com/taskbox.json">
+          <input id="cloudEndpoint" class="input" value="${settings.cloudEndpoint || ''}" placeholder="./cloud-sync.json 或 https://example.com/taskbox.json">
         </label>
         <label>访问令牌（可选）
           <input id="cloudToken" class="input" type="password" value="${settings.cloudToken || ''}" placeholder="Bearer Token">
@@ -85,7 +85,7 @@ export function renderSettings(app) {
   app.querySelector('#pullCloudBtn').addEventListener('click', async () => {
     try {
       const result = await pullDataFromCloud();
-      if (result === 'updated') showToast('已拉取云端最新数据');
+      if (result === 'merged') showToast('已与云端合并并去重');
       else showToast('本地已是最新');
       navigate('#home');
     } catch {

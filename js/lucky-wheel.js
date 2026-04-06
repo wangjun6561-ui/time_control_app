@@ -1,6 +1,18 @@
 import { getTasksByBox, playSound } from './db.js';
 import { openSheet } from './app.js';
 
+
+function pickWeightedTaskIndex(tasks) {
+  const weights = tasks.map((t) => Math.max(1, Number(t.weight) || 1));
+  const total = weights.reduce((a, b) => a + b, 0);
+  let r = Math.random() * total;
+  for (let i = 0; i < weights.length; i += 1) {
+    r -= weights[i];
+    if (r <= 0) return i;
+  }
+  return tasks.length - 1;
+}
+
 export function openLuckyWheel(box) {
   const pendingTasks = getTasksByBox(box.id).filter((t) => !t.isCompleted);
   const { root } = openSheet(`
@@ -87,7 +99,7 @@ export function openLuckyWheel(box) {
 
       if (t < 1) requestAnimationFrame(tick);
       else {
-        const finalSector = (pendingTasks.length - (Math.floor((angle % (Math.PI * 2)) / ((Math.PI * 2) / pendingTasks.length))) - 1 + pendingTasks.length) % pendingTasks.length;
+        const finalSector = pickWeightedTaskIndex(pendingTasks);
         root.querySelector('#wheelResult').innerHTML = `<p>🎉 抽中了：${pendingTasks[finalSector].content}</p><button class="btn" id="okBtn">好的</button>`;
         root.querySelector('#okBtn').addEventListener('click', () => root.querySelector('#wheelResult').innerHTML = '');
       }

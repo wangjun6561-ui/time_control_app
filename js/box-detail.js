@@ -202,6 +202,7 @@ function openTaskEditor({ taskId, boxId }, onDone) {
         </div>
       </label>
       <label>截止日期<input id="taskDate" class="input" type="date" value="${task?.dueDate ? task.dueDate.slice(0,10) : ''}"></label>
+      <label>抽奖权重（选填，默认1）<input id="taskWeight" class="input" type="number" min="1" step="1" placeholder="1" value="${task?.weight ?? ''}"></label>
       <label>所属盒子<select id="taskBox" class="input">${boxes.map((b) => `<option value="${b.id}" ${b.id === (task?.boxId || boxId) ? 'selected' : ''}>${b.name}</option>`).join('')}</select></label>
       <div class="row gap8"><button class="btn" id="cancelBtn">取消</button><button class="btn primary" id="saveBtn">保存</button></div>
     </div>
@@ -221,8 +222,9 @@ function openTaskEditor({ taskId, boxId }, onDone) {
     if (!content) return;
     const nextBoxId = root.querySelector('#taskBox').value;
     const due = root.querySelector('#taskDate').value || null;
-    if (task) updateTask(task.id, { content, priority, dueDate: due ? new Date(due).toISOString() : null, boxId: nextBoxId });
-    else addTask({ boxId: nextBoxId, content, priority, dueDate: due ? new Date(due).toISOString() : null });
+    const weight = Math.max(1, Number(root.querySelector('#taskWeight').value) || 1);
+    if (task) updateTask(task.id, { content, priority, weight, dueDate: due ? new Date(due).toISOString() : null, boxId: nextBoxId });
+    else addTask({ boxId: nextBoxId, content, priority, weight, dueDate: due ? new Date(due).toISOString() : null });
     close();
     onDone();
   });
