@@ -1,11 +1,11 @@
 const STORAGE_KEY = 'taskbox_data';
 
 const DEFAULT_BOXES = [
-  { name: '重要事项', color: 'important', icon: '⭐', sortOrder: 0, isDefault: true, description: '放这里的，都是不做会后悔的事。别拖了，一件一件来。' },
+  { name: '重要盒', color: 'important', icon: '⭐', sortOrder: 0, isDefault: true, description: '放这里的，都是不做会后悔的事。别拖了，一件一件来。' },
   { name: '放松盒', color: 'relax', icon: '☕', sortOrder: 1, isDefault: true, description: '累了就来这里抽一个，给自己一个正当的休息理由。' },
   { name: '奖励盒', color: 'reward', icon: '🎁', sortOrder: 2, isDefault: true, description: '完成了重要任务？来这里随机抽一个奖励犒劳自己吧。' },
-  { name: '惩罚盒', color: 'punish', icon: '⚡', sortOrder: 3, isDefault: true, description: '没完成计划？随机抽一个惩罚，对自己狠一点才能进步。' },
-  { name: '杂事盒', color: 'misc', icon: '📦', sortOrder: 4, isDefault: true, description: '想到就记，统一处理，减少脑内占用。' },
+  { name: '待办盒', color: 'misc', icon: '📦', sortOrder: 3, isDefault: true, description: '想到就记，统一处理，减少脑内占用。' },
+  { name: '惩罚盒', color: 'punish', icon: '⚡', sortOrder: 4, isDefault: true, description: '没完成计划？随机抽一个惩罚，对自己狠一点才能进步。' },
 ];
 
 const DEFAULT_TASKS = [
@@ -14,11 +14,54 @@ const DEFAULT_TASKS = [
   { boxName: '放松盒', content: '靠墙站立' },
   { boxName: '放松盒', content: '洗袜子/衣服/扫地' },
   { boxName: '放松盒', content: '整理桌面' },
+  { boxName: '放松盒', content: '离开屏幕望向远处' },
+  { boxName: '放松盒', content: '散步 5min' },
+  { boxName: '放松盒', content: '拉伸颈肩' },
+  { boxName: '放松盒', content: '喝杯热饮' },
+  { boxName: '放松盒', content: '随手涂鸦' },
+  { boxName: '放松盒', content: '做几组深蹲' },
+  { boxName: '放松盒', content: '写下三件感恩的事' },
+  { boxName: '放松盒', content: '冷水洗脸' },
+  { boxName: '放松盒', content: '做手部按摩' },
+  { boxName: '放松盒', content: '渐进式肌肉放松' },
+  { boxName: '放松盒', content: '读几页课外书' },
+  { boxName: '放松盒', content: '4-7-8 呼吸练习' },
+  { boxName: '放松盒', content: '闻喜欢的香薰' },
+  { boxName: '放松盒', content: '自由书写 5min' },
+
   { boxName: '奖励盒', content: '高分牛肉火锅' },
   { boxName: '奖励盒', content: '高分自助餐' },
+  { boxName: '奖励盒', content: '高分烧烤夜宵' },
+  { boxName: '奖励盒', content: '去网红甜品店打卡' },
+  { boxName: '奖励盒', content: '去电影院看一部期待已久的电影' },
+  { boxName: '奖励盒', content: '买一件想了很久的东西100美元以内' },
+  { boxName: '奖励盒', content: '买一本一直想看的书' },
+  { boxName: '奖励盒', content: '去一个没去过的公园或景点' },
+  { boxName: '奖励盒', content: '去咖啡馆坐一个下午' },
+  { boxName: '奖励盒', content: '报一个一直想学的兴趣课' },
+  { boxName: '奖励盒', content: '来一次说走就走的短途旅行-10h' },
+
   { boxName: '惩罚盒', content: '复盘 1k 字' },
   { boxName: '惩罚盒', content: '输出主题文章 2k 字' },
+  { boxName: '惩罚盒', content: '手写笔记整理 30min' },
+  { boxName: '惩罚盒', content: '背 50 个单词并默写' },
+  { boxName: '惩罚盒', content: '读专业书籍 1 小时并做笔记' },
+  { boxName: '惩罚盒', content: '整理电脑文件夹' },
+  { boxName: '惩罚盒', content: '本周待办全部过一遍并更新' },
+  { boxName: '惩罚盒', content: '做 50 个深蹲 + 20 个俯卧撑' },
+  { boxName: '惩罚盒', content: '跑步或快走 30min' },
+  { boxName: '惩罚盒', content: '戒手机 2 小时' },
+  { boxName: '惩罚盒', content: '今日禁止刷短视频' },
+  { boxName: '惩罚盒', content: '提前 1 小时起床' },
+  { boxName: '惩罚盒', content: '冷水澡' },
+  { boxName: '惩罚盒', content: '整理并归纳本周所有错误' },
+  { boxName: '惩罚盒', content: '给自己录一段 5min 反思视频' },
+  { boxName: '惩罚盒', content: '列出下周计划并细化到每天' },
+  { boxName: '惩罚盒', content: '学一个新技能并输出笔记' },
+  { boxName: '惩罚盒', content: '阅读并总结一篇英文文章' },
+  { boxName: '惩罚盒', content: '断食一餐' },
 ];
+
 
 let cloudSyncTimer = null;
 
@@ -28,7 +71,11 @@ export function uid() {
 
 function normalize(data = {}) {
   return {
-    boxes: Array.isArray(data.boxes) ? data.boxes : [],
+    boxes: (Array.isArray(data.boxes) ? data.boxes : []).map((b) => {
+      const renamed = b.name === '杂事盒' ? '待办盒' : (b.name === '重要事项' ? '重要盒' : b.name);
+      const orderMap = { '重要盒': 0, '放松盒': 1, '奖励盒': 2, '待办盒': 3, '惩罚盒': 4 };
+      return { ...b, name: renamed, sortOrder: orderMap[renamed] ?? b.sortOrder ?? 99 };
+    }),
     tasks: Array.isArray(data.tasks) ? data.tasks : [],
     settings: {
       deepseekApiKey: data.settings?.deepseekApiKey || '',

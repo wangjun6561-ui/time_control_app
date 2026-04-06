@@ -30,7 +30,7 @@ export function renderHome(app) {
           const pct = boxTasks.length ? Math.round((finished / boxTasks.length) * 100) : 0;
           const importantPreview = b.sortOrder === 0
             ? `<ul class="important-preview">${pendingTasks.slice(0, 3).map((t) => `<li>${t.content}</li>`).join('')}</ul>`
-            : `<div class="box-main"><b>${pendingTasks.length}</b><small>项待完成</small></div>`;
+            : `<div class="box-main"><b>${pendingTasks.length}</b></div>`;
 
           return `
             <button class="box-card ${cardSizeClass(b)} ${b.color}" data-box-id="${b.id}">
