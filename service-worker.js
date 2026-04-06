@@ -1,10 +1,16 @@
 const CACHE_NAME = 'taskbox-v1';
 const CACHE_FILES = [
-  '/', '/index.html', '/css/style.css',
-  '/js/app.js', '/js/db.js', '/js/home.js',
-  '/js/box-detail.js', '/js/lucky-wheel.js',
-  '/js/ai-extract.js', '/js/settings.js',
-  '/manifest.json'
+  './',
+  './index.html',
+  './css/style.css',
+  './js/app.js',
+  './js/db.js',
+  './js/home.js',
+  './js/box-detail.js',
+  './js/lucky-wheel.js',
+  './js/ai-extract.js',
+  './js/settings.js',
+  './manifest.json'
 ];
 
 self.addEventListener('install', (e) => {
