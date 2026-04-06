@@ -237,6 +237,30 @@ function scheduleCloudPush() {
   }, 700);
 }
 
+
+function isJsonBinEndpoint(url) {
+  return /api\.jsonbin\.io\/v3\/b\//.test(url || '');
+}
+
+function normalizeToken(token = '') {
+  return token.trim().replace(/^\[|\]$/g, '');
+}
+
+function buildCloudHeaders(endpoint, token, includeJson = true) {
+  const cleanToken = normalizeToken(token);
+  const headers = includeJson ? { 'Content-Type': 'application/json' } : {};
+
+  if (!cleanToken) return headers;
+
+  if (isJsonBinEndpoint(endpoint)) {
+    headers['X-Master-Key'] = cleanToken;
+  } else {
+    headers.Authorization = `Bearer ${cleanToken}`;
+  }
+
+  return headers;
+}
+
 export async function pushDataToCloud() {
   const data = getData();
   const { cloudEnabled, cloudEndpoint, cloudToken } = data.settings;
@@ -244,10 +268,7 @@ export async function pushDataToCloud() {
 
   await fetch(cloudEndpoint, {
     method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(cloudToken ? { Authorization: `Bearer ${cloudToken}` } : {}),
-    },
+    headers: buildCloudHeaders(cloudEndpoint, cloudToken, true),
     body: JSON.stringify(data),
   });
 
@@ -256,13 +277,25 @@ export async function pushDataToCloud() {
 
 
 function dedupeTasks(tasks) {
-  const seen = new Set();
-  return tasks.filter((t) => {
-    const key = [t.boxId, t.content?.trim(), t.isCompleted, t.dueDate || '', t.priority || 2].join('::');
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
+  const map = new Map();
+
+  tasks.forEach((t) => {
+    const key = [t.boxId, t.content?.trim(), t.dueDate || '', t.priority || 2].join('::');
+    const current = map.get(key);
+
+    if (!current) {
+      map.set(key, { ...t });
+      return;
+    }
+
+    current.isCompleted = Boolean(current.isCompleted || t.isCompleted);
+    current.completedAt = current.completedAt || t.completedAt || null;
+    current.weight = Math.max(Number(current.weight) || 1, Number(t.weight) || 1);
+    current.sortOrder = Math.min(Number(current.sortOrder) || 0, Number(t.sortOrder) || 0);
+    map.set(key, current);
   });
+
+  return Array.from(map.values());
 }
 
 function mergeData(local, cloud) {
@@ -299,13 +332,13 @@ export async function pullDataFromCloud() {
 
   const response = await fetch(cloudEndpoint, {
     method: 'GET',
-    headers: {
-      ...(cloudToken ? { Authorization: `Bearer ${cloudToken}` } : {}),
-    },
+    headers: buildCloudHeaders(cloudEndpoint, cloudToken, false),
   });
   if (!response.ok) throw new Error('cloud pull failed');
 
-  const cloudData = normalize(await response.json());
+  const payload = await response.json();
+  const cloudRaw = isJsonBinEndpoint(cloudEndpoint) ? (payload.record || {}) : payload;
+  const cloudData = normalize(cloudRaw);
   const merged = mergeData(local, cloudData);
   merged.settings = { ...merged.settings, deepseekApiKey: local.settings.deepseekApiKey };
   saveData(merged, { skipCloud: true });

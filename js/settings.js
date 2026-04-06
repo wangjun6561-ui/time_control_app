@@ -37,7 +37,7 @@ export function renderSettings(app) {
         <label class="row between center">启用云同步
           <label class="switch"><input id="cloudEnabled" type="checkbox" ${settings.cloudEnabled ? 'checked' : ''}><span></span></label>
         </label>
-        <label>云端接口 URL（支持 GET/PUT 返回/接收 JSON）
+        <label>云端接口 URL（支持 GET/PUT；JSONBin 可直接填 /v3/b/BinID）
           <input id="cloudEndpoint" class="input" value="${settings.cloudEndpoint || ''}" placeholder="./cloud-sync.json 或 https://example.com/taskbox.json">
         </label>
         <label>访问令牌（可选）
