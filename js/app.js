@@ -1,0 +1,139 @@
+import { getBoxes, getSettings } from './db.js';
+import { renderHome } from './home.js';
+import { renderBoxDetail } from './box-detail.js';
+import { openAIExtractSheet } from './ai-extract.js';
+import { renderSettings } from './settings.js';
+
+const app = document.getElementById('app');
+
+export function showToast(msg) {
+  const toast = document.getElementById('toast');
+  toast.textContent = msg;
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 1800);
+}
+
+export function checkOnline() {
+  if (!navigator.onLine) {
+    showToast('当前无网络，AI 提取需要联网使用');
+    return false;
+  }
+  return true;
+}
+
+export function openSheet(contentHtml, { height = '70vh', onClose } = {}) {
+  const root = document.getElementById('bottom-sheet-root');
+  root.innerHTML = `
+    <div class="sheet-backdrop"></div>
+    <section class="bottom-sheet" style="height:${height}">
+      ${contentHtml}
+    </section>
+  `;
+  const backdrop = root.querySelector('.sheet-backdrop');
+  const sheet = root.querySelector('.bottom-sheet');
+
+  requestAnimationFrame(() => {
+    backdrop.classList.add('show');
+    sheet.classList.add('show');
+  });
+
+  const close = () => {
+    backdrop.classList.remove('show');
+    sheet.classList.remove('show');
+    setTimeout(() => {
+      root.innerHTML = '';
+      onClose?.();
+    }, 220);
+  };
+
+  backdrop.addEventListener('click', close);
+
+  let startY = 0;
+  let moved = 0;
+  sheet.addEventListener('touchstart', (e) => {
+    startY = e.touches[0].clientY;
+    moved = 0;
+  }, { passive: true });
+  sheet.addEventListener('touchmove', (e) => {
+    moved = e.touches[0].clientY - startY;
+    if (moved > 0) {
+      sheet.style.transform = `translateY(${Math.min(moved, 120)}px)`;
+    }
+  }, { passive: true });
+  sheet.addEventListener('touchend', () => {
+    if (moved > 80) close();
+    else sheet.style.transform = '';
+  });
+
+  return { root, sheet, close };
+}
+
+function applyTheme() {
+  const mode = getSettings().themeMode;
+  document.documentElement.dataset.theme = mode;
+}
+
+export function navigate(hash) {
+  if (location.hash === hash) {
+    route();
+  } else {
+    location.hash = hash;
+  }
+}
+
+function route() {
+  applyTheme();
+  const [path, param] = (location.hash || '#home').replace('#', '').split('/');
+  if (path === 'home') renderHome(app);
+  else if (path === 'box') renderBoxDetail(app, param);
+  else if (path === 'settings') renderSettings(app);
+  else {
+    location.hash = '#home';
+  }
+}
+
+function registerServiceWorker() {
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('service-worker.js').catch(() => {});
+  }
+}
+
+function setupAudioUnlock() {
+  let audioUnlocked = false;
+  document.addEventListener('touchstart', () => {
+    if (audioUnlocked) return;
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    const ctx = new Ctx();
+    ctx.resume();
+    audioUnlocked = true;
+  }, { once: true });
+}
+
+function setupKeyboardInsets() {
+  if (!window.visualViewport) return;
+  const update = () => {
+    const inset = Math.max(0, window.innerHeight - window.visualViewport.height - window.visualViewport.offsetTop);
+    document.documentElement.style.setProperty('--keyboard-inset', `${inset}px`);
+  };
+  window.visualViewport.addEventListener('resize', update);
+  update();
+}
+
+window.addEventListener('hashchange', route);
+window.addEventListener('DOMContentLoaded', () => {
+  getBoxes();
+  setupAudioUnlock();
+  setupKeyboardInsets();
+  registerServiceWorker();
+  route();
+});
+
+window.TaskBoxApp = {
+  navigate,
+  openAIExtractSheet: () => {
+    if (!checkOnline()) return;
+    openAIExtractSheet();
+  },
+  showToast,
+};
