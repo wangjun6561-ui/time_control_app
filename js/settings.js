@@ -79,12 +79,21 @@ export function renderSettings(app) {
   app.querySelector('#soundEnabled').addEventListener('change', (e) => setSettings({ soundEnabled: e.target.checked }));
 
   app.querySelector('#cloudEnabled').addEventListener('change', (e) => setSettings({ cloudEnabled: e.target.checked }));
-  app.querySelector('#cloudEndpoint').addEventListener('blur', (e) => setSettings({ cloudEndpoint: e.target.value.trim() }));
-  app.querySelector('#cloudToken').addEventListener('blur', (e) => setSettings({ cloudToken: e.target.value.trim() }));
+  app.querySelector('#cloudEndpoint').addEventListener('input', (e) => setSettings({ cloudEndpoint: e.target.value.trim() }));
+  app.querySelector('#cloudToken').addEventListener('input', (e) => setSettings({ cloudToken: e.target.value.trim() }));
+
+  const syncCloudSettings = () => {
+    setSettings({
+      cloudEnabled: app.querySelector('#cloudEnabled').checked,
+      cloudEndpoint: app.querySelector('#cloudEndpoint').value.trim(),
+      cloudToken: app.querySelector('#cloudToken').value.trim(),
+    });
+  };
 
   app.querySelector('#pullCloudBtn').addEventListener('click', async () => {
+    syncCloudSettings();
     try {
-      const result = await pullDataFromCloud();
+      const result = await pullDataFromCloud({ force: true });
       if (result === 'merged') showToast('已与云端合并并去重');
       else showToast('本地已是最新');
       navigate('#home');
@@ -94,8 +103,9 @@ export function renderSettings(app) {
   });
 
   app.querySelector('#pushCloudBtn').addEventListener('click', async () => {
+    syncCloudSettings();
     try {
-      await pushDataToCloud();
+      await pushDataToCloud({ force: true });
       showToast('已上传到云端');
     } catch {
       showToast('云端上传失败，请检查 URL/Token');

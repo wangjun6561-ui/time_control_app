@@ -254,6 +254,7 @@ function buildCloudHeaders(endpoint, token, includeJson = true) {
 
   if (isJsonBinEndpoint(endpoint)) {
     headers['X-Master-Key'] = cleanToken;
+    headers['X-Access-Key'] = cleanToken;
   } else {
     headers.Authorization = `Bearer ${cleanToken}`;
   }
@@ -261,10 +262,12 @@ function buildCloudHeaders(endpoint, token, includeJson = true) {
   return headers;
 }
 
-export async function pushDataToCloud() {
+export async function pushDataToCloud(options = {}) {
+  const { force = false } = options;
   const data = getData();
   const { cloudEnabled, cloudEndpoint, cloudToken } = data.settings;
-  if (!cloudEnabled || !cloudEndpoint) return false;
+  if (!cloudEndpoint) return false;
+  if (!force && !cloudEnabled) return false;
 
   await fetch(cloudEndpoint, {
     method: 'PUT',
@@ -325,10 +328,12 @@ function mergeData(local, cloud) {
   return merged;
 }
 
-export async function pullDataFromCloud() {
+export async function pullDataFromCloud(options = {}) {
+  const { force = false } = options;
   const local = getData();
   const { cloudEnabled, cloudEndpoint, cloudToken } = local.settings;
-  if (!cloudEnabled || !cloudEndpoint) return false;
+  if (!cloudEndpoint) return false;
+  if (!force && !cloudEnabled) return false;
 
   const response = await fetch(cloudEndpoint, {
     method: 'GET',
