@@ -20,7 +20,7 @@ export function renderBoxDetail(app, boxId) {
         <input id="boxNameInput" class="title-input" value="${box.name}">
         <div class="row gap8">
           <button class="icon-btn" id="wheelBtn">🎡</button>
-          <button class="icon-btn" id="descBtn">ℹ️</button>
+          <button class="icon-btn" id="settingsBtn">⚙️</button>
         </div>
       </header>
 
@@ -44,7 +44,7 @@ export function renderBoxDetail(app, boxId) {
 
   app.querySelector('#backBtn').addEventListener('click', () => navigate('#home'));
   app.querySelector('#wheelBtn').addEventListener('click', () => openLuckyWheel(box));
-  app.querySelector('#descBtn').addEventListener('click', () => openDesc(box));
+  app.querySelector('#settingsBtn').addEventListener('click', () => navigate('#settings'));
   app.querySelector('#boxNameInput').addEventListener('blur', (e) => {
     const name = e.target.value.trim();
     if (name) updateBox(box.id, { name });
@@ -63,7 +63,7 @@ function taskItem(t, color) {
     <article class="task-item ${t.isCompleted ? 'done' : ''}" data-id="${t.id}">
       <button class="delete-btn">删除</button>
       <div class="task-main" data-main="1">
-        <button class="check ${color} p${t.priority} ${t.isCompleted ? 'checked' : ''}">${t.isCompleted ? '✓' : ''}</button>
+        <button class="check p${t.priority ?? 0} ${t.isCompleted ? 'checked' : ''}">${t.isCompleted ? '✓' : ''}</button>
         <button class="task-content" data-action="edit">
           <span>${t.content}</span>
           ${t.dueDate ? `<small class="${overdue ? 'overdue' : ''}">${new Date(t.dueDate).toLocaleDateString()}</small>` : ''}
@@ -198,7 +198,7 @@ function openTaskEditor({ taskId, boxId }, onDone) {
       <label>任务内容<input id="taskContent" class="input" value="${task?.content || ''}"></label>
       <label>优先级
         <div class="priority-select">
-          ${[1,2,3].map((p) => `<button class="prio-dot p${p} ${task?.priority === p ? 'active' : ''}" data-p="${p}"></button>`).join('')}
+          ${[0,1,2,3].map((p) => `<button class="prio-dot p${p} ${((task?.priority ?? 0) === p) ? 'active' : ''}" data-p="${p}">${p===0?'无':''}</button>`).join('')}
         </div>
       </label>
       <label>截止日期<input id="taskDate" class="input" type="date" value="${task?.dueDate ? task.dueDate.slice(0,10) : ''}"></label>
@@ -208,7 +208,7 @@ function openTaskEditor({ taskId, boxId }, onDone) {
     </div>
   `, { height: '70vh' });
 
-  let priority = task?.priority || 2;
+  let priority = task?.priority ?? 0;
   root.querySelectorAll('.prio-dot').forEach((btn) => {
     btn.addEventListener('click', () => {
       priority = Number(btn.dataset.p);
@@ -228,15 +228,4 @@ function openTaskEditor({ taskId, boxId }, onDone) {
     close();
     onDone();
   });
-}
-
-function openDesc(box) {
-  const { root } = openSheet(`
-    <div class="sheet-handle"></div>
-    <div class="sheet-content">
-      <h3>盒子介绍</h3>
-      <textarea id="descText" class="input" rows="6">${box.description || ''}</textarea>
-    </div>
-  `, { height: '40vh' });
-  root.querySelector('#descText').addEventListener('blur', (e) => updateBox(box.id, { description: e.target.value }));
 }

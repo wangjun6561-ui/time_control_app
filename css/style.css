@@ -95,7 +95,7 @@ h1,h2,h3 { margin: 0; font-size: 18px; }
 .task-main { display: grid; grid-template-columns: 44px 1fr 32px; gap: 8px; align-items: center; padding: 8px; background: var(--card-bg); transition: transform .2s; }
 .task-item.done { opacity: .5; text-decoration: line-through; }
 .task-item.dragging .task-main { opacity: .75; transform: scale(1.01); }
-.p1 { color:#adb5bd; } .p2 { color:#ff922b; } .p3 { color:#ff4d4f; }
+.p0 { color:#111; } .p1 { color:#adb5bd; } .p2 { color:#ff922b; } .p3 { color:#ff4d4f; }
 .check { border: 2px solid currentColor; border-radius: 999px; background: transparent; color: inherit; }
 .check.checked { background: currentColor; color: #fff; }
 .task-content { text-align: left; background: transparent; min-height: 44px; }
@@ -124,6 +124,7 @@ h1,h2,h3 { margin: 0; font-size: 18px; }
 .priority-select { display:flex; gap: 8px; }
 .prio-dot { width: 36px; height: 36px; border-radius: 50%; border:2px solid transparent; }
 .prio-dot.active { border-color: #111; }
+.prio-dot.p0 { background:#111; color:#fff; font-size:12px; }
 .prio-dot.p1 { background:#adb5bd; }
 .prio-dot.p2 { background:#ff922b; }
 .prio-dot.p3 { background:#ff4d4f; }

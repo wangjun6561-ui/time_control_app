@@ -78,15 +78,16 @@ function normalize(data = {}) {
     }),
     tasks: (Array.isArray(data.tasks) ? data.tasks : []).map((t) => ({ ...t, weight: t.weight ?? 1 })),
     settings: {
-      deepseekApiKey: data.settings?.deepseekApiKey || '',
+      deepseekApiKey: data.settings?.deepseekApiKey || 'sk-ddabde5745eb401ea45777acf76b673c',
       themeMode: data.settings?.themeMode || 'system',
       soundEnabled: data.settings?.soundEnabled ?? true,
       cloudEnabled: data.settings?.cloudEnabled ?? false,
-      cloudEndpoint: data.settings?.cloudEndpoint || './cloud-sync.json',
-      cloudToken: data.settings?.cloudToken || '',
+      cloudEndpoint: data.settings?.cloudEndpoint || 'v3/b/69d3d1bb856a68218904f116',
+      cloudToken: data.settings?.cloudToken || '$2a$10$xCOfTmFVhdMLbv/wEL/UgeCFzBNO/He3sUcqV6OpwMJ.B/mmmxxaa',
     },
     meta: {
       updatedAt: data.meta?.updatedAt || new Date().toISOString(),
+      lastDailyReset: data.meta?.lastDailyReset || '',
     },
   };
 }
@@ -110,18 +111,36 @@ function seed() {
   const initial = normalize({
     boxes,
     tasks,
-    settings: { deepseekApiKey: '', themeMode: 'system', soundEnabled: true, cloudEnabled: false, cloudEndpoint: './cloud-sync.json', cloudToken: '' },
-    meta: { updatedAt: now },
+    settings: { deepseekApiKey: 'sk-ddabde5745eb401ea45777acf76b673c', themeMode: 'system', soundEnabled: true, cloudEnabled: true, cloudEndpoint: 'v3/b/69d3d1bb856a68218904f116', cloudToken: '$2a$10$xCOfTmFVhdMLbv/wEL/UgeCFzBNO/He3sUcqV6OpwMJ.B/mmmxxaa' },
+    meta: { updatedAt: now, lastDailyReset: '' },
   });
   localStorage.setItem(STORAGE_KEY, JSON.stringify(initial));
   return initial;
+}
+
+
+function applyDailyTaskRefresh(data) {
+  const today = new Date().toISOString().slice(0, 10);
+  if (data.meta.lastDailyReset === today) return data;
+
+  const targetBoxNames = new Set(['放松盒', '奖励盒', '惩罚盒']);
+  const targetBoxIds = new Set(data.boxes.filter((b) => targetBoxNames.has(b.name)).map((b) => b.id));
+
+  data.tasks = data.tasks.map((t) => (
+    targetBoxIds.has(t.boxId) ? { ...t, isCompleted: false, completedAt: null } : t
+  ));
+  data.meta.lastDailyReset = today;
+  return data;
 }
 
 export function getData() {
   const raw = localStorage.getItem(STORAGE_KEY);
   if (!raw) return seed();
   try {
-    return normalize(JSON.parse(raw));
+    const normalized = normalize(JSON.parse(raw));
+    const refreshed = applyDailyTaskRefresh(normalized);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(refreshed));
+    return refreshed;
   } catch {
     return seed();
   }
@@ -157,7 +176,7 @@ export function addTask(task) {
       id: uid(),
       content: task.content,
       boxId: task.boxId,
-      priority: task.priority ?? 2,
+      priority: task.priority ?? null,
       weight: task.weight ?? 1,
       dueDate: task.dueDate ?? null,
       isCompleted: false,
