@@ -246,6 +246,27 @@ function normalizeToken(token = '') {
   return token.trim().replace(/^\[|\]$/g, '');
 }
 
+
+function resolveCloudEndpoint(rawEndpoint, { forRead = false } = {}) {
+  const value = (rawEndpoint || '').trim();
+  if (!value) return '';
+
+  let endpoint = value;
+  if (/^[a-f0-9]{24}$/i.test(endpoint)) {
+    endpoint = `https://api.jsonbin.io/v3/b/${endpoint}`;
+  } else if (endpoint.startsWith('/v3/')) {
+    endpoint = `https://api.jsonbin.io${endpoint}`;
+  } else if (endpoint.startsWith('v3/')) {
+    endpoint = `https://api.jsonbin.io/${endpoint}`;
+  }
+
+  if (forRead && isJsonBinEndpoint(endpoint) && !/\/latest$/i.test(endpoint) && !/\/\d+$/i.test(endpoint)) {
+    endpoint = `${endpoint.replace(/\/$/, '')}/latest`;
+  }
+
+  return endpoint;
+}
+
 function buildCloudHeaders(endpoint, token, includeJson = true) {
   const cleanToken = normalizeToken(token);
   const headers = includeJson ? { 'Content-Type': 'application/json' } : {};
@@ -266,12 +287,13 @@ export async function pushDataToCloud(options = {}) {
   const { force = false } = options;
   const data = getData();
   const { cloudEnabled, cloudEndpoint, cloudToken } = data.settings;
-  if (!cloudEndpoint) return false;
+  const endpoint = resolveCloudEndpoint(cloudEndpoint, { forRead: false });
+  if (!endpoint) return false;
   if (!force && !cloudEnabled) return false;
 
-  await fetch(cloudEndpoint, {
+  await fetch(endpoint, {
     method: 'PUT',
-    headers: buildCloudHeaders(cloudEndpoint, cloudToken, true),
+    headers: buildCloudHeaders(endpoint, cloudToken, true),
     body: JSON.stringify(data),
   });
 
@@ -332,17 +354,18 @@ export async function pullDataFromCloud(options = {}) {
   const { force = false } = options;
   const local = getData();
   const { cloudEnabled, cloudEndpoint, cloudToken } = local.settings;
-  if (!cloudEndpoint) return false;
+  const endpoint = resolveCloudEndpoint(cloudEndpoint, { forRead: true });
+  if (!endpoint) return false;
   if (!force && !cloudEnabled) return false;
 
-  const response = await fetch(cloudEndpoint, {
+  const response = await fetch(endpoint, {
     method: 'GET',
-    headers: buildCloudHeaders(cloudEndpoint, cloudToken, false),
+    headers: buildCloudHeaders(endpoint, cloudToken, false),
   });
   if (!response.ok) throw new Error('cloud pull failed');
 
   const payload = await response.json();
-  const cloudRaw = isJsonBinEndpoint(cloudEndpoint) ? (payload.record || {}) : payload;
+  const cloudRaw = isJsonBinEndpoint(endpoint) ? (payload.record || {}) : payload;
   const cloudData = normalize(cloudRaw);
   const merged = mergeData(local, cloudData);
   merged.settings = { ...merged.settings, deepseekApiKey: local.settings.deepseekApiKey };
