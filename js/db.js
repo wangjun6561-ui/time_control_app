@@ -94,7 +94,8 @@ function normalize(data = {}) {
       reflection: t.reflection ?? '',
       review: t.review ?? '',
       summaryText: t.summaryText ?? '',
-      syncKey: t.syncKey || `${t.createdAt || ''}::${t.content || ''}`
+      syncKey: t.syncKey || `${t.createdAt || ''}::${t.content || ''}`,
+      updatedAt: t.updatedAt || t.createdAt || new Date().toISOString()
     })),
     settings: {
       deepseekApiKey: data.settings?.deepseekApiKey || 'sk-ddabde5745eb401ea45777acf76b673c',
@@ -107,6 +108,7 @@ function normalize(data = {}) {
     meta: {
       updatedAt: data.meta?.updatedAt || new Date().toISOString(),
       lastDailyReset: data.meta?.lastDailyReset || '',
+      lastSummaryExportAt: data.meta?.lastSummaryExportAt || null,
     },
   };
 }
@@ -133,17 +135,37 @@ function seed() {
     dueDate: null,
     completedAt: null,
     createdAt: now,
+    updatedAt: now,
   }));
   const initial = normalize({
     boxes,
     tasks,
     settings: { deepseekApiKey: 'sk-ddabde5745eb401ea45777acf76b673c', themeMode: 'system', soundEnabled: true, cloudEnabled: true, cloudEndpoint: 'v3/b/69d3d1bb856a68218904f116', cloudToken: '$2a$10$xCOfTmFVhdMLbv/wEL/UgeCFzBNO/He3sUcqV6OpwMJ.B/mmmxxaa' },
-    meta: { updatedAt: now, lastDailyReset: '' },
+    meta: { updatedAt: now, lastDailyReset: '', lastSummaryExportAt: null },
   });
   localStorage.setItem(STORAGE_KEY, JSON.stringify(initial));
   return initial;
 }
 
+
+
+function dedupeByContentPerBox(data) {
+  const map = new Map();
+  data.tasks.forEach((t) => {
+    const key = `${t.boxId}::${(t.content || '').trim()}`;
+    const prev = map.get(key);
+    if (!prev) {
+      map.set(key, t);
+      return;
+    }
+    const chosen = prev.deleted && !t.deleted ? t : (!prev.deleted && t.deleted ? prev : (new Date(prev.updatedAt) >= new Date(t.updatedAt) ? prev : t));
+    chosen.isCompleted = Boolean(prev.isCompleted || t.isCompleted || chosen.isCompleted);
+    chosen.progress = Math.max(Number(prev.progress) || 0, Number(t.progress) || 0, Number(chosen.progress) || 0);
+    map.set(key, chosen);
+  });
+  data.tasks = Array.from(map.values());
+  return data;
+}
 
 function applyDailyTaskRefresh(data) {
   const today = new Date().toISOString().slice(0, 10);
@@ -164,7 +186,7 @@ export function getData() {
   if (!raw) return seed();
   try {
     const normalized = normalize(JSON.parse(raw));
-    const refreshed = applyDailyTaskRefresh(normalized);
+    const refreshed = dedupeByContentPerBox(applyDailyTaskRefresh(normalized));
     localStorage.setItem(STORAGE_KEY, JSON.stringify(refreshed));
     return refreshed;
   } catch {
@@ -215,6 +237,7 @@ export function addTask(task) {
       sortOrder: maxOrder + 1,
       completedAt: task.completedAt ?? null,
       createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
       syncKey: `${new Date().toISOString()}::${task.content}`,
     });
     return data;
@@ -226,9 +249,9 @@ export function restoreTask(task) {
   updateData((data) => {
     const existing = data.tasks.find((t) => t.id === task.id || t.syncKey === task.syncKey);
     if (existing) {
-      Object.assign(existing, { ...task, deleted: false, deletedAt: null });
+      Object.assign(existing, { ...task, deleted: false, deletedAt: null, updatedAt: new Date().toISOString() });
     } else {
-      data.tasks.push({ ...task, deleted: false, deletedAt: null });
+      data.tasks.push({ ...task, deleted: false, deletedAt: null, updatedAt: new Date().toISOString() });
     }
     return data;
   });
@@ -242,6 +265,7 @@ export function updateTask(taskId, patch) {
       if (Object.prototype.hasOwnProperty.call(patch, 'content')) {
         t.syncKey = `${t.createdAt}::${t.content}`;
       }
+      t.updatedAt = new Date().toISOString();
     }
     return data;
   });
@@ -253,6 +277,7 @@ export function deleteTask(taskId) {
     if (t) {
       t.deleted = true;
       t.deletedAt = new Date().toISOString();
+      t.updatedAt = new Date().toISOString();
     }
     return data;
   });
@@ -303,19 +328,34 @@ export function exportDailySummary() {
   const targetNames = new Set(['重要盒', '待办盒']);
   const boxMap = new Map(data.boxes.map((b) => [b.id, b.name]));
   const today = new Date().toISOString().slice(0, 10);
+  const now = new Date().toISOString();
+  const since = data.meta.lastSummaryExportAt ? new Date(data.meta.lastSummaryExportAt) : null;
 
-  const done = data.tasks.filter((t) => !t.deleted && t.isCompleted && targetNames.has(boxMap.get(t.boxId)));
+  const shouldInclude = (t) => {
+    if (t.deleted || !targetNames.has(boxMap.get(t.boxId))) return false;
+    const completedAt = t.completedAt ? new Date(t.completedAt) : null;
+    const updatedAt = t.updatedAt ? new Date(t.updatedAt) : null;
+    if (!since) return t.isCompleted || ((Number(t.progress) || 0) > 0);
+    if (t.isCompleted && completedAt && completedAt > since) return true;
+    if (!t.isCompleted && (Number(t.progress) || 0) > 0 && updatedAt && updatedAt > since) return true;
+    return false;
+  };
+
+  const rows = data.tasks.filter(shouldInclude);
 
   const lines = [
     `# ${today} 每日汇总`,
     '',
-    '## 重要盒 & 待办盒（已完成）',
+    `统计区间：${data.meta.lastSummaryExportAt || '首次导出'} -> ${now}`,
+    '',
+    '## 重要盒 & 待办盒（新增完成/进行中）',
     ''
   ];
 
-  if (!done.length) lines.push('- 今日无完成任务');
-  done.forEach((t) => {
-    lines.push(`- [x] (${boxMap.get(t.boxId)}) ${t.content}`);
+  if (!rows.length) lines.push('- 本时段无新增内容');
+  rows.forEach((t) => {
+    const mark = t.isCompleted ? '[x]' : `[~ ${Math.max(0, Math.min(100, Number(t.progress) || 0))}%]`;
+    lines.push(`- ${mark} (${boxMap.get(t.boxId)}) ${t.content}`);
     if (t.reflection) lines.push(`  - 感悟：${t.reflection}`);
     if (t.review) lines.push(`  - 复盘：${t.review}`);
     if (t.summaryText) lines.push(`  - 总结：${t.summaryText}`);
@@ -327,6 +367,11 @@ export function exportDailySummary() {
   a.download = `${today}.md`;
   a.click();
   URL.revokeObjectURL(a.href);
+
+  updateData((next) => {
+    next.meta.lastSummaryExportAt = now;
+    return next;
+  });
 }
 
 export function playSound(name) {
