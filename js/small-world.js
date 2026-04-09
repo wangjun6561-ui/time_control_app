@@ -115,19 +115,29 @@ function createFloorRow(itemName, index) {
 }
 
 function normalizePavilionFloor(floor = {}) {
+  const firstArray = (...keys) => {
+    for (const k of keys) if (Array.isArray(floor[k])) return floor[k];
+    const fuzzy = Object.keys(floor).find((k) => /item/i.test(k) && Array.isArray(floor[k]));
+    return fuzzy ? floor[fuzzy] : [];
+  };
   return {
     ...floor,
     level: Number(floor.level ?? floor.floor ?? floor.tier ?? 0),
     level_name: floor.level_name || floor.name || floor.title || '',
     level_description: floor.level_description || floor.description || floor.desc || '',
     items_count: Number(floor.items_count ?? floor.total_items ?? floor.count ?? 0),
-    items: Array.isArray(floor.items) ? floor.items : [],
-    sample_item_titles: Array.isArray(floor.sample_item_titles) ? floor.sample_item_titles : [],
-    sample_item_ids: Array.isArray(floor.sample_item_ids) ? floor.sample_item_ids : [],
+    items: firstArray('items', 'rewards', 'reward_items'),
+    sample_item_titles: firstArray('sample_item_titles', 'sample_titles'),
+    sample_item_ids: firstArray('sample_item_ids', 'sample_ids'),
   };
 }
 
 function normalizeTowerFloor(floor = {}) {
+  const firstArray = (...keys) => {
+    for (const k of keys) if (Array.isArray(floor[k])) return floor[k];
+    const fuzzy = Object.keys(floor).find((k) => /task/i.test(k) && Array.isArray(floor[k]));
+    return fuzzy ? floor[fuzzy] : [];
+  };
   return {
     ...floor,
     floor: Number(floor.floor ?? floor.level ?? floor.tier ?? 0),
@@ -136,9 +146,9 @@ function normalizeTowerFloor(floor = {}) {
     difficulty: floor.difficulty || floor.floor_difficulty || floor.difficulty_label || '',
     total_tasks: Number(floor.total_tasks ?? floor.tasks_count ?? floor.count ?? 0),
     tasks_count: Number(floor.tasks_count ?? floor.total_tasks ?? floor.count ?? 0),
-    tasks: Array.isArray(floor.tasks) ? floor.tasks : [],
-    sample_task_names: Array.isArray(floor.sample_task_names) ? floor.sample_task_names : [],
-    sample_task_ids: Array.isArray(floor.sample_task_ids) ? floor.sample_task_ids : [],
+    tasks: firstArray('tasks', 'task_list', 'challenges', 'trials'),
+    sample_task_names: firstArray('sample_task_names', 'sample_names'),
+    sample_task_ids: firstArray('sample_task_ids', 'sample_ids'),
   };
 }
 
