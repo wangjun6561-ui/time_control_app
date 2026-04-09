@@ -290,6 +290,8 @@ export async function renderSmallWorldFloor(app, type, floorId) {
           title: payload.title,
           description: payload.desc,
           types: payload.tags,
+          priority: payload.priority,
+          progress: payload.progress,
           triangle: { money: 1, time: 1, energy: 1 },
           narrative_line: null,
         });
@@ -299,6 +301,8 @@ export async function renderSmallWorldFloor(app, type, floorId) {
           name: payload.title,
           desc: payload.desc,
           tags: payload.tags,
+          priority: payload.priority,
+          progress: payload.progress,
           dimension: '成长与学习',
           reward_tier: floor.floor,
         });
@@ -322,9 +326,23 @@ export async function renderSmallWorldFloor(app, type, floorId) {
       initialTitle: isPavilion ? target.title : target.name,
       initialDesc: isPavilion ? target.description : target.desc,
       initialTags: isPavilion ? target.types : target.tags,
+      initialPriority: target.priority ?? 0,
+      initialProgress: target.progress ?? 0,
     }, (payload) => {
-      if (isPavilion) Object.assign(target, { title: payload.title, description: payload.desc, types: payload.tags });
-      else Object.assign(target, { name: payload.title, desc: payload.desc, tags: payload.tags });
+      if (isPavilion) Object.assign(target, {
+        title: payload.title,
+        description: payload.desc,
+        types: payload.tags,
+        priority: payload.priority,
+        progress: payload.progress,
+      });
+      else Object.assign(target, {
+        name: payload.title,
+        desc: payload.desc,
+        tags: payload.tags,
+        priority: payload.priority,
+        progress: payload.progress,
+      });
       saveFloor(path, raw).then(() => renderSmallWorldFloor(app, type, floorId));
     });
   }));
@@ -335,6 +353,8 @@ function openFloorItemEditor({
   initialTitle = '',
   initialDesc = '',
   initialTags = [],
+  initialPriority = 0,
+  initialProgress = 0,
 } = {}, onSave) {
   const { root, close } = openSheet(`
     <div class="sheet-handle"></div>
@@ -343,20 +363,50 @@ function openFloorItemEditor({
       <label>标题<input id="swEditTitle" class="input" value="${escapeHtml(initialTitle)}" placeholder="${isPavilion ? '奖励标题' : '试炼标题'}"></label>
       <label>描述<input id="swEditDesc" class="input" value="${escapeHtml(initialDesc)}" placeholder="详情描述（抽奖后显示）"></label>
       <label>标签（逗号分隔）<input id="swEditTags" class="input" value="${escapeHtml((initialTags || []).join(', '))}" placeholder="例如：成长, 社交"></label>
+      <label>优先级
+        <div class="priority-select">
+          ${[0, 1, 2, 3].map((p) => `<button class="prio-dot p${p} ${Number(initialPriority) === p ? 'active' : ''}" data-p="${p}">${p === 0 ? '无' : ''}</button>`).join('')}
+        </div>
+      </label>
+      <label>完成进度
+        <div class="progress-select">
+          ${[0, 20, 40, 60, 80, 100].map((v) => `<button class="progress-dot ${Number(initialProgress) === v ? 'active' : ''}" data-progress="${v}">${v}%</button>`).join('')}
+        </div>
+      </label>
       <div class="row gap8">
         <button class="btn" id="swEditCancel">取消</button>
         <button class="btn primary" id="swEditSave">保存</button>
       </div>
     </div>
-  `, { height: '58vh' });
+  `, { height: '70vh' });
+
+  let priority = Number(initialPriority) || 0;
+  let progress = Number(initialProgress) || 0;
+
+  root.querySelectorAll('.prio-dot').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      priority = Number(btn.dataset.p);
+      root.querySelectorAll('.prio-dot').forEach((b) => b.classList.toggle('active', b === btn));
+    });
+  });
+
+  root.querySelectorAll('.progress-dot').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      progress = Number(btn.dataset.progress);
+      root.querySelectorAll('.progress-dot').forEach((b) => b.classList.toggle('active', b === btn));
+    });
+  });
 
   root.querySelector('#swEditCancel').addEventListener('click', close);
   root.querySelector('#swEditSave').addEventListener('click', () => {
     const title = root.querySelector('#swEditTitle').value.trim();
-    if (!title) return;
+    if (!title) {
+      showToast('标题不能为空');
+      return;
+    }
     const desc = root.querySelector('#swEditDesc').value.trim();
     const tags = root.querySelector('#swEditTags').value.split(',').map((x) => x.trim()).filter(Boolean);
-    onSave?.({ title, desc, tags });
+    onSave?.({ title, desc, tags, priority, progress });
     close();
   });
 }
