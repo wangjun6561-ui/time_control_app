@@ -80,7 +80,8 @@ let cloudSyncTimer = null;
 const SOUND_CACHE = new Map();
 const BOX_COLOR_POOL = ['important', 'relax', 'reward', 'misc', 'punish', 'study', 'health'];
 const DEFAULT_PAVILION_URL = 'https://gist.githubusercontent.com/wangjun6561-ui/6a56c7352da690f8aeca47262361243b/raw/1f947c59ab7be5f873b92d66f71f3d941f7ea5e1/pavilion.json';
-const DEFAULT_TOWER_URL = 'https://gist.githubusercontent.com/wangjun6561-ui/6a56c7352da690f8aeca47262361243b/raw/1f947c59ab7be5f873b92d66f71f3d941f7ea5e1/tower.json';
+const LEGACY_TOWER_URL = 'https://gist.githubusercontent.com/wangjun6561-ui/6a56c7352da690f8aeca47262361243b/raw/1f947c59ab7be5f873b92d66f71f3d941f7ea5e1/tower.json';
+const DEFAULT_TOWER_URL = 'https://gist.githubusercontent.com/wangjun6561-ui/6a56c7352da690f8aeca47262361243b/raw/8cf924c148ac25cfc443c685e204d75b29da69e1/tower.json';
 
 export function uid() {
   return crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -113,7 +114,9 @@ function normalize(data = {}) {
       cloudEndpoint: data.settings?.cloudEndpoint || 'v3/b/69d3d1bb856a68218904f116',
       cloudToken: data.settings?.cloudToken || '$2a$10$xCOfTmFVhdMLbv/wEL/UgeCFzBNO/He3sUcqV6OpwMJ.B/mmmxxaa',
       pavilionDataUrl: data.settings?.pavilionDataUrl || DEFAULT_PAVILION_URL,
-      towerDataUrl: data.settings?.towerDataUrl || DEFAULT_TOWER_URL,
+      towerDataUrl: !data.settings?.towerDataUrl || data.settings?.towerDataUrl === LEGACY_TOWER_URL
+        ? DEFAULT_TOWER_URL
+        : data.settings.towerDataUrl,
     },
     meta: {
       updatedAt: data.meta?.updatedAt || new Date().toISOString(),
