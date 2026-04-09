@@ -1,6 +1,11 @@
 import { navigate, openSheet, showToast } from './app.js';
+import { getSettings } from './db.js';
 
 const NUMERALS = ['壹', '貳', '參', '肆', '伍', '陸', '柒', '捌'];
+const SW_CACHE_KEYS = {
+  pavilion: 'taskbox_sw_pavilion_cache',
+  tower: 'taskbox_sw_tower_cache',
+};
 
 async function loadJson(path) {
   const res = await fetch(path, { cache: 'no-store' });
@@ -19,6 +24,46 @@ async function loadJsonAny(paths) {
     }
   }
   throw lastErr || new Error('No candidate path loaded');
+}
+
+function readCachedData(type) {
+  const raw = localStorage.getItem(SW_CACHE_KEYS[type]);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+function writeCachedData(type, data) {
+  localStorage.setItem(SW_CACHE_KEYS[type], JSON.stringify(data));
+}
+
+async function loadSmallWorldSource(type) {
+  const settings = getSettings();
+  const customUrl = type === 'pavilion' ? settings.pavilionDataUrl : settings.towerDataUrl;
+
+  if (customUrl) {
+    try {
+      const data = await loadJson(customUrl);
+      writeCachedData(type, data);
+      return { data, path: customUrl, source: 'remote' };
+    } catch {
+      const cached = readCachedData(type);
+      if (cached) return { data: cached, path: `cache:${type}`, source: 'cache' };
+    }
+  }
+
+  try {
+    const local = await loadJsonAny(type === 'pavilion' ? ['data/pavilion.json', 'pavilion.json'] : ['data/tower.json', 'tower.json']);
+    writeCachedData(type, local.data);
+    return { ...local, source: 'local' };
+  } catch {
+    const cached = readCachedData(type);
+    if (cached) return { data: cached, path: `cache:${type}`, source: 'cache' };
+    throw new Error(`${type} data load failed`);
+  }
 }
 
 function mapLevelName(level, name) {
@@ -109,8 +154,8 @@ export async function renderSmallWorldMap(app) {
 
   try {
     const [pavilionLoaded, towerLoaded] = await Promise.all([
-      loadJsonAny(['data/pavilion.json', 'pavilion.json']),
-      loadJsonAny(['data/tower.json', 'tower.json']),
+      loadSmallWorldSource('pavilion'),
+      loadSmallWorldSource('tower'),
     ]);
     const pavilionRaw = pavilionLoaded.data;
     const towerRaw = towerLoaded.data;
@@ -149,7 +194,7 @@ export async function renderSmallWorldFloor(app, type, floorId) {
     return;
   }
 
-  const loaded = await loadJsonAny(isPavilion ? ['data/pavilion.json', 'pavilion.json'] : ['data/tower.json', 'tower.json']);
+  const loaded = await loadSmallWorldSource(isPavilion ? 'pavilion' : 'tower');
   const path = loaded.path;
   const key = isPavilion ? 'level' : 'floor';
   const raw = loaded.data;

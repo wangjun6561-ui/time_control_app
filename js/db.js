@@ -110,6 +110,8 @@ function normalize(data = {}) {
       cloudEnabled: data.settings?.cloudEnabled ?? false,
       cloudEndpoint: data.settings?.cloudEndpoint || 'v3/b/69d3d1bb856a68218904f116',
       cloudToken: data.settings?.cloudToken || '$2a$10$xCOfTmFVhdMLbv/wEL/UgeCFzBNO/He3sUcqV6OpwMJ.B/mmmxxaa',
+      pavilionDataUrl: data.settings?.pavilionDataUrl || '',
+      towerDataUrl: data.settings?.towerDataUrl || '',
     },
     meta: {
       updatedAt: data.meta?.updatedAt || new Date().toISOString(),
