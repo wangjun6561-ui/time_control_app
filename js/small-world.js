@@ -29,6 +29,8 @@ function getFloorCount(floor, countField) {
   const raw = floor[countField];
   if (Array.isArray(raw)) return raw.length;
   if (Number.isFinite(raw)) return raw;
+  if (Number.isFinite(floor.items_count)) return floor.items_count;
+  if (Number.isFinite(floor.tasks_count)) return floor.tasks_count;
   if (Array.isArray(floor.items)) return floor.items.length;
   if (Array.isArray(floor.tasks)) return floor.tasks.length;
   if (Number.isFinite(floor.total_tasks)) return floor.total_tasks;
@@ -158,7 +160,19 @@ export async function renderSmallWorldFloor(app, type, floorId) {
     return;
   }
 
-  const items = isPavilion ? (Array.isArray(floor.items) ? floor.items : []) : (Array.isArray(floor.tasks) ? floor.tasks : []);
+  const items = isPavilion
+    ? (Array.isArray(floor.items) ? floor.items : (floor.sample_item_titles || []).map((title, i) => ({
+      id: floor.sample_item_ids?.[i] || `L${floor.level}_${i + 1}`,
+      title,
+      description: floor.level_description || '',
+      types: [],
+    })))
+    : (Array.isArray(floor.tasks) ? floor.tasks : (floor.sample_task_names || []).map((name, i) => ({
+      id: floor.sample_task_ids?.[i] || `F${floor.floor}-${i + 1}`,
+      name,
+      desc: floor.floor_desc || '',
+      tags: [],
+    })));
 
   app.innerHTML = `
     <main class="page">
