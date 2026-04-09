@@ -11,7 +11,50 @@ const SW_CACHE_KEYS = {
 async function loadJson(path) {
   const res = await fetch(path, { cache: 'no-store' });
   if (!res.ok) throw new Error(path);
-  return res.json();
+  const text = await res.text();
+  return parseJsonLenient(text);
+}
+
+function extractFirstJsonObject(text) {
+  const start = text.indexOf('{');
+  if (start < 0) return text;
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let i = start; i < text.length; i += 1) {
+    const ch = text[i];
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (ch === '\\') {
+      escaped = true;
+      continue;
+    }
+    if (ch === '"') {
+      inString = !inString;
+      continue;
+    }
+    if (inString) continue;
+    if (ch === '{') depth += 1;
+    if (ch === '}') {
+      depth -= 1;
+      if (depth === 0) return text.slice(start, i + 1);
+    }
+  }
+  return text;
+}
+
+function parseJsonLenient(text) {
+  try {
+    return JSON.parse(text);
+  } catch {
+    const normalized = extractFirstJsonObject(text)
+      .replace(/[\u201C\u201D]/g, '"')
+      .replace(/[\u2018\u2019]/g, '\'')
+      .replace(/^\uFEFF/, '');
+    return JSON.parse(normalized);
+  }
 }
 
 async function loadJsonAny(paths) {
