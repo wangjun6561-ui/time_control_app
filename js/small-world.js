@@ -3,9 +3,22 @@ import { navigate, openSheet, showToast } from './app.js';
 const NUMERALS = ['壹', '貳', '參', '肆', '伍', '陸', '柒', '捌'];
 
 async function loadJson(path) {
-  const res = await fetch(path);
+  const res = await fetch(path, { cache: 'no-store' });
   if (!res.ok) throw new Error(path);
   return res.json();
+}
+
+async function loadJsonAny(paths) {
+  let lastErr;
+  for (const path of paths) {
+    try {
+      const data = await loadJson(path);
+      return { data, path };
+    } catch (err) {
+      lastErr = err;
+    }
+  }
+  throw lastErr || new Error('No candidate path loaded');
 }
 
 function mapLevelName(level, name) {
@@ -93,16 +106,18 @@ export async function renderSmallWorldMap(app) {
   app.querySelector('#swBack').addEventListener('click', () => navigate('#home'));
 
   try {
-    const [pavilionRaw, towerRaw] = await Promise.all([
-      loadJson('data/pavilion.json'),
-      loadJson('data/tower.json'),
+    const [pavilionLoaded, towerLoaded] = await Promise.all([
+      loadJsonAny(['data/pavilion.json', 'pavilion.json']),
+      loadJsonAny(['data/tower.json', 'tower.json']),
     ]);
+    const pavilionRaw = pavilionLoaded.data;
+    const towerRaw = towerLoaded.data;
 
     const pavilion = Array.isArray(pavilionRaw.treasure_vault) ? pavilionRaw.treasure_vault : [];
     const tower = Array.isArray(towerRaw.treasure_vault) ? towerRaw.treasure_vault : [];
 
     if (pavilion.length === 0 || tower.length === 0) {
-      app.querySelector('#swContent').innerHTML = '<p class="muted">数据加载失败，请检查 JSON 文件是否已放置在 data 目录并包含 treasure_vault 数组。</p>';
+      app.querySelector('#swContent').innerHTML = '<p class="muted">数据加载失败，请检查 pavilion.json / tower.json 的目录与 treasure_vault 结构。</p>';
       return;
     }
 
@@ -121,7 +136,7 @@ export async function renderSmallWorldMap(app) {
       });
     });
   } catch {
-    app.querySelector('#swContent').innerHTML = '<p class="muted">未找到 data/pavilion.json 或 data/tower.json，请先放置数据文件。</p>';
+    app.querySelector('#swContent').innerHTML = '<p class="muted">未找到 pavilion.json / tower.json。请放在 data/ 目录或站点根目录。</p>';
   }
 }
 
@@ -132,10 +147,10 @@ export async function renderSmallWorldFloor(app, type, floorId) {
     return;
   }
 
-  const path = isPavilion ? 'data/pavilion.json' : 'data/tower.json';
+  const loaded = await loadJsonAny(isPavilion ? ['data/pavilion.json', 'pavilion.json'] : ['data/tower.json', 'tower.json']);
+  const path = loaded.path;
   const key = isPavilion ? 'level' : 'floor';
-
-  const raw = await loadJson(path);
+  const raw = loaded.data;
   const floors = Array.isArray(raw.treasure_vault) ? raw.treasure_vault : [];
   const floor = floors.find((f) => String(f[key]) === String(floorId));
   if (!floor) {
