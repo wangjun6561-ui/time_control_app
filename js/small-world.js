@@ -152,6 +152,26 @@ function normalizeTowerFloor(floor = {}) {
   };
 }
 
+function normalizePavilionItem(item = {}, idx = 0, level = 0, fallbackDesc = '') {
+  return {
+    ...item,
+    id: item.id || `L${level}_${idx + 1}`,
+    title: item.title || item.name || item.label || '',
+    description: item.description || item.desc || fallbackDesc || '',
+    types: Array.isArray(item.types) ? item.types : (Array.isArray(item.tags) ? item.tags : []),
+  };
+}
+
+function normalizeTowerTask(task = {}, idx = 0, floor = 0, fallbackDesc = '') {
+  return {
+    ...task,
+    id: task.id || `F${floor}-${idx + 1}`,
+    name: task.name || task.title || task.label || '',
+    desc: task.desc || task.description || fallbackDesc || '',
+    tags: Array.isArray(task.tags) ? task.tags : (Array.isArray(task.types) ? task.types : []),
+  };
+}
+
 function pickVaultArray(raw) {
   if (!raw || typeof raw !== 'object') return [];
   const candidates = [
@@ -250,18 +270,18 @@ export async function renderSmallWorldFloor(app, type, floorId) {
   }
 
   const items = isPavilion
-    ? (Array.isArray(floor.items) ? floor.items : (floor.sample_item_titles || []).map((title, i) => ({
-      id: floor.sample_item_ids?.[i] || `L${floor.level}_${i + 1}`,
-      title,
-      description: floor.level_description || '',
-      types: [],
-    })))
-    : (Array.isArray(floor.tasks) ? floor.tasks : (floor.sample_task_names || []).map((name, i) => ({
-      id: floor.sample_task_ids?.[i] || `F${floor.floor}-${i + 1}`,
-      name,
-      desc: floor.floor_desc || '',
-      tags: [],
-    })));
+    ? ((Array.isArray(floor.items) && floor.items.length > 0)
+      ? floor.items.map((it, i) => normalizePavilionItem(it, i, floor.level, floor.level_description)).filter((it) => it.title)
+      : (floor.sample_item_titles || []).map((title, i) => normalizePavilionItem({
+        id: floor.sample_item_ids?.[i],
+        title,
+      }, i, floor.level, floor.level_description)).filter((it) => it.title))
+    : ((Array.isArray(floor.tasks) && floor.tasks.length > 0)
+      ? floor.tasks.map((it, i) => normalizeTowerTask(it, i, floor.floor, floor.floor_desc)).filter((it) => it.name)
+      : (floor.sample_task_names || []).map((name, i) => normalizeTowerTask({
+        id: floor.sample_task_ids?.[i],
+        name,
+      }, i, floor.floor, floor.floor_desc)).filter((it) => it.name));
 
   app.innerHTML = `
     <main class="page">
