@@ -98,15 +98,12 @@ function createFloorRow(itemName, index) {
   row.className = 'sw-row';
   row.dataset.i = String(index);
 
-  const title = document.createElement('strong');
+  const title = document.createElement('button');
+  title.className = 'icon-btn';
+  title.style.textAlign = 'left';
+  title.dataset.edit = String(index);
   title.textContent = safeText(itemName);
   row.appendChild(title);
-
-  const editBtn = document.createElement('button');
-  editBtn.className = 'icon-btn';
-  editBtn.dataset.edit = String(index);
-  editBtn.textContent = '✎';
-  row.appendChild(editBtn);
 
   const delBtn = document.createElement('button');
   delBtn.className = 'icon-btn';
@@ -115,6 +112,34 @@ function createFloorRow(itemName, index) {
   row.appendChild(delBtn);
 
   return row;
+}
+
+function normalizePavilionFloor(floor = {}) {
+  return {
+    ...floor,
+    level: Number(floor.level ?? floor.floor ?? floor.tier ?? 0),
+    level_name: floor.level_name || floor.name || floor.title || '',
+    level_description: floor.level_description || floor.description || floor.desc || '',
+    items_count: Number(floor.items_count ?? floor.total_items ?? floor.count ?? 0),
+    items: Array.isArray(floor.items) ? floor.items : [],
+    sample_item_titles: Array.isArray(floor.sample_item_titles) ? floor.sample_item_titles : [],
+    sample_item_ids: Array.isArray(floor.sample_item_ids) ? floor.sample_item_ids : [],
+  };
+}
+
+function normalizeTowerFloor(floor = {}) {
+  return {
+    ...floor,
+    floor: Number(floor.floor ?? floor.level ?? floor.tier ?? 0),
+    floor_name: floor.floor_name || floor.name || floor.title || '',
+    floor_desc: floor.floor_desc || floor.description || floor.desc || '',
+    difficulty: floor.difficulty || floor.floor_difficulty || floor.difficulty_label || '',
+    total_tasks: Number(floor.total_tasks ?? floor.tasks_count ?? floor.count ?? 0),
+    tasks_count: Number(floor.tasks_count ?? floor.total_tasks ?? floor.count ?? 0),
+    tasks: Array.isArray(floor.tasks) ? floor.tasks : [],
+    sample_task_names: Array.isArray(floor.sample_task_names) ? floor.sample_task_names : [],
+    sample_task_ids: Array.isArray(floor.sample_task_ids) ? floor.sample_task_ids : [],
+  };
 }
 
 function renderBuilding(data, key, nameField, countField, type) {
@@ -161,8 +186,8 @@ export async function renderSmallWorldMap(app) {
     const pavilionRaw = pavilionLoaded.data;
     const towerRaw = towerLoaded.data;
 
-    const pavilion = Array.isArray(pavilionRaw.treasure_vault) ? pavilionRaw.treasure_vault : [];
-    const tower = Array.isArray(towerRaw.treasure_vault) ? towerRaw.treasure_vault : [];
+    const pavilion = (Array.isArray(pavilionRaw.treasure_vault) ? pavilionRaw.treasure_vault : []).map(normalizePavilionFloor).filter((f) => Number.isFinite(f.level) && f.level > 0);
+    const tower = (Array.isArray(towerRaw.treasure_vault) ? towerRaw.treasure_vault : []).map(normalizeTowerFloor).filter((f) => Number.isFinite(f.floor) && f.floor > 0);
 
     if (pavilion.length === 0 || tower.length === 0) {
       app.querySelector('#swContent').innerHTML = '<p class="muted">数据加载失败，请检查 pavilion.json / tower.json 的目录与 treasure_vault 结构。</p>';
@@ -199,7 +224,8 @@ export async function renderSmallWorldFloor(app, type, floorId) {
   const path = loaded.path;
   const key = isPavilion ? 'level' : 'floor';
   const raw = loaded.data;
-  const floors = Array.isArray(raw.treasure_vault) ? raw.treasure_vault : [];
+  const floorsRaw = Array.isArray(raw.treasure_vault) ? raw.treasure_vault : [];
+  const floors = (isPavilion ? floorsRaw.map(normalizePavilionFloor) : floorsRaw.map(normalizeTowerFloor));
   const floor = floors.find((f) => String(f[key]) === String(floorId));
   if (!floor) {
     navigate('#smallworld');
@@ -257,31 +283,29 @@ export async function renderSmallWorldFloor(app, type, floorId) {
   app.querySelector('#spinBtn').addEventListener('click', () => openSpin(items, isPavilion));
 
   addBtn.addEventListener('click', () => {
-    const title = prompt(isPavilion ? '奖励标题' : '试炼标题');
-    if (!title) return;
-    const desc = prompt('描述', '') || '';
-    const tags = (prompt('标签(逗号分隔)', '') || '').split(',').map((x) => x.trim()).filter(Boolean);
-    if (isPavilion) {
-      items.push({
-        id: `L${floor.level}_${Date.now()}`,
-        title,
-        description: desc,
-        types: tags,
-        triangle: { money: 1, time: 1, energy: 1 },
-        narrative_line: null,
-      });
-    } else {
-      items.push({
-        id: `F${floor.floor}-${Date.now()}`,
-        name: title,
-        desc,
-        tags,
-        dimension: '成长与学习',
-        reward_tier: floor.floor,
-      });
-      floor.total_tasks = items.length;
-    }
-    saveFloor(path, raw).then(() => renderSmallWorldFloor(app, type, floorId));
+    openFloorItemEditor({ isPavilion }, (payload) => {
+      if (isPavilion) {
+        items.push({
+          id: `L${floor.level}_${Date.now()}`,
+          title: payload.title,
+          description: payload.desc,
+          types: payload.tags,
+          triangle: { money: 1, time: 1, energy: 1 },
+          narrative_line: null,
+        });
+      } else {
+        items.push({
+          id: `F${floor.floor}-${Date.now()}`,
+          name: payload.title,
+          desc: payload.desc,
+          tags: payload.tags,
+          dimension: '成长与学习',
+          reward_tier: floor.floor,
+        });
+        floor.total_tasks = items.length;
+      }
+      saveFloor(path, raw).then(() => renderSmallWorldFloor(app, type, floorId));
+    });
   });
 
   app.querySelectorAll('[data-del]').forEach((b) => b.addEventListener('click', () => {
@@ -293,13 +317,48 @@ export async function renderSmallWorldFloor(app, type, floorId) {
   app.querySelectorAll('[data-edit]').forEach((b) => b.addEventListener('click', () => {
     const i = Number(b.dataset.edit);
     const target = items[i];
-    const title = prompt('标题', isPavilion ? target.title : target.name);
-    if (!title) return;
-    const desc = prompt('描述', isPavilion ? target.description : target.desc) || '';
-    if (isPavilion) Object.assign(target, { title, description: desc });
-    else Object.assign(target, { name: title, desc });
-    saveFloor(path, raw).then(() => renderSmallWorldFloor(app, type, floorId));
+    openFloorItemEditor({
+      isPavilion,
+      initialTitle: isPavilion ? target.title : target.name,
+      initialDesc: isPavilion ? target.description : target.desc,
+      initialTags: isPavilion ? target.types : target.tags,
+    }, (payload) => {
+      if (isPavilion) Object.assign(target, { title: payload.title, description: payload.desc, types: payload.tags });
+      else Object.assign(target, { name: payload.title, desc: payload.desc, tags: payload.tags });
+      saveFloor(path, raw).then(() => renderSmallWorldFloor(app, type, floorId));
+    });
   }));
+}
+
+function openFloorItemEditor({
+  isPavilion,
+  initialTitle = '',
+  initialDesc = '',
+  initialTags = [],
+} = {}, onSave) {
+  const { root, close } = openSheet(`
+    <div class="sheet-handle"></div>
+    <div class="sheet-content">
+      <h3>${initialTitle ? '编辑内容' : '新增内容'}</h3>
+      <label>标题<input id="swEditTitle" class="input" value="${escapeHtml(initialTitle)}" placeholder="${isPavilion ? '奖励标题' : '试炼标题'}"></label>
+      <label>描述<input id="swEditDesc" class="input" value="${escapeHtml(initialDesc)}" placeholder="详情描述（抽奖后显示）"></label>
+      <label>标签（逗号分隔）<input id="swEditTags" class="input" value="${escapeHtml((initialTags || []).join(', '))}" placeholder="例如：成长, 社交"></label>
+      <div class="row gap8">
+        <button class="btn" id="swEditCancel">取消</button>
+        <button class="btn primary" id="swEditSave">保存</button>
+      </div>
+    </div>
+  `, { height: '58vh' });
+
+  root.querySelector('#swEditCancel').addEventListener('click', close);
+  root.querySelector('#swEditSave').addEventListener('click', () => {
+    const title = root.querySelector('#swEditTitle').value.trim();
+    if (!title) return;
+    const desc = root.querySelector('#swEditDesc').value.trim();
+    const tags = root.querySelector('#swEditTags').value.split(',').map((x) => x.trim()).filter(Boolean);
+    onSave?.({ title, desc, tags });
+    close();
+  });
 }
 
 function saveFloor(path, json) {
@@ -328,7 +387,7 @@ function showResult(root, item, isPavilion) {
   const desc = safeText(isPavilion ? item.description : item.desc);
   const tags = (isPavilion ? item.types : item.tags) || [];
 
-  root.querySelector('#swResult').innerHTML = `
+  root.querySelector('#wheelResult').innerHTML = `
     <div class="panel" id="resultCard">
       ${isPavilion ? `<h4>${escapeHtml(title)}</h4>` : `<h4>试炼内容</h4><h5>${escapeHtml(title)}</h5>`}
       <p>${escapeHtml(desc)}</p>

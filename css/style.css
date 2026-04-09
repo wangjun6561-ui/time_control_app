@@ -194,5 +194,5 @@ h1,h2,h3 { margin: 0; font-size: 18px; }
 .sw-building { display: flex; flex-direction: column; align-items: center; gap: 8px; margin-bottom: 14px; }
 .sw-floor { border: none; border-radius: 999px; min-height: 40px; padding: 8px 12px; color: #fff; background: linear-gradient(90deg, #6366f1, #3b82f6); }
 .sw-building.tower .sw-floor { background: linear-gradient(90deg, #8b5cf6, #ec4899); }
-.sw-row { display: grid; grid-template-columns: 1fr 44px 44px; gap: 8px; align-items: center; margin-bottom: 8px; }
+.sw-row { display: grid; grid-template-columns: 1fr 44px; gap: 8px; align-items: center; margin-bottom: 8px; }
 .sw-save-btn { position: absolute; right: 12px; bottom: 12px; }
