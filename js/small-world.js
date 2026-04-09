@@ -1,5 +1,6 @@
 import { navigate, openSheet, showToast } from './app.js';
 import { getSettings } from './db.js';
+import { openWeightedWheel } from './lucky-wheel.js';
 
 const NUMERALS = ['壹', '貳', '參', '肆', '伍', '陸', '柒', '捌'];
 const SW_CACHE_KEYS = {
@@ -313,68 +314,12 @@ function openSpin(items, isPavilion) {
     showToast('当前楼层暂无内容，无法抽奖');
     return;
   }
-
-  const { root } = openSheet(`
-    <div class="sheet-handle"></div>
-    <div class="sheet-content wheel">
-      <h3>抽奖</h3>
-      <canvas id="swWheel"></canvas>
-      <button class="btn primary" id="drawBtn">抽奖</button>
-      <div id="swResult"></div>
-    </div>
-  `, { height: '80vh' });
-
-  const canvas = root.querySelector('#swWheel');
-  const ctx = canvas.getContext('2d');
-  const size = Math.min(window.innerWidth * 0.85, 360);
-  canvas.width = size;
-  canvas.height = size;
-  let angle = 0;
-
-  const draw = () => {
-    ctx.clearRect(0, 0, size, size);
-    const cx = size / 2;
-    const r = size / 2 - 5;
-    const step = (Math.PI * 2) / list.length;
-    list.forEach((it, i) => {
-      const s = angle + i * step;
-      const e = s + step;
-      ctx.beginPath();
-      ctx.moveTo(cx, cx);
-      ctx.arc(cx, cx, r, s, e);
-      ctx.closePath();
-      ctx.fillStyle = `hsl(${(i * 45) % 360} 80% 60%)`;
-      ctx.fill();
-      ctx.save();
-      ctx.translate(cx, cx);
-      ctx.rotate(s + step / 2);
-      ctx.fillStyle = '#fff';
-      ctx.textAlign = 'right';
-      ctx.fillText(safeText(isPavilion ? it.title : it.name).slice(0, 10), r - 10, 4);
-      ctx.restore();
-    });
-  };
-
-  draw();
-
-  root.querySelector('#drawBtn').addEventListener('click', () => {
-    const target = Math.floor(Math.random() * list.length);
-    const step = (Math.PI * 2) / list.length;
-    const pointer = -Math.PI / 2;
-    const targetAngle = pointer - (target + 0.5) * step;
-    const final = angle + Math.PI * 8 + ((targetAngle - angle) % (Math.PI * 2));
-    const start = performance.now();
-    const dur = 3000;
-
-    const tick = (now) => {
-      const t = Math.min(1, (now - start) / dur);
-      angle = angle + (final - angle) * (1 - Math.pow(1 - t, 3));
-      draw();
-      if (t < 1) requestAnimationFrame(tick);
-      else showResult(root, list[target], isPavilion);
-    };
-
-    requestAnimationFrame(tick);
+  openWeightedWheel({
+    title: isPavilion ? '珍宝阁抽奖' : '弑神塔抽奖',
+    entries: list,
+    color: isPavilion ? 'reward' : 'punish',
+    getText: (item) => (isPavilion ? item.title : item.name),
+    onPicked: (root, picked) => showResult(root, picked, isPavilion),
   });
 }
 

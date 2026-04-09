@@ -27,15 +27,34 @@ function pickByPointer(tasks, angle) {
 
 export function openLuckyWheel(box) {
   const pendingTasks = getTasksByBox(box.id).filter((t) => !t.isCompleted);
+  return openWeightedWheel({
+    title: `${box.name} · 随机抽取`,
+    entries: pendingTasks,
+    color: box.color,
+    getText: (task) => task.content,
+    onPicked: (root, task) => {
+      root.querySelector('#wheelResult').innerHTML = `<p>🎉 抽中了：${task.content}</p><button class="btn" id="okBtn">好的</button>`;
+      root.querySelector('#okBtn').addEventListener('click', () => root.querySelector('#wheelResult').innerHTML = '');
+    },
+  });
+}
+
+export function openWeightedWheel({
+  title = '随机抽取',
+  entries = [],
+  color = 'important',
+  getText = (item) => item.content || item.name || '',
+  onPicked,
+} = {}) {
   const { root } = openSheet(`
     <div class="sheet-handle"></div>
     <div class="sheet-content wheel">
-      <h3>${box.name} · 随机抽取</h3>
+      <h3>${title}</h3>
       <div class="wheel-wrap">
         <div class="wheel-arrow">▼</div>
         <canvas id="wheelCanvas"></canvas>
       </div>
-      <button id="spinBtn" class="btn primary ${box.color}" ${pendingTasks.length ? '' : 'disabled'}>开始</button>
+      <button id="spinBtn" class="btn primary ${color}" ${entries.length ? '' : 'disabled'}>开始</button>
       <div id="wheelResult" class="result-card"></div>
     </div>
   `, { height: '80vh' });
@@ -53,7 +72,7 @@ export function openLuckyWheel(box) {
     const cx = size / 2;
     const r = size / 2 - 4;
 
-    if (!pendingTasks.length) {
+    if (!entries.length) {
       ctx.fillStyle = '#aaa';
       ctx.font = '18px sans-serif';
       ctx.textAlign = 'center';
@@ -61,7 +80,7 @@ export function openLuckyWheel(box) {
       return;
     }
 
-    const slices = getSlices(pendingTasks, angle);
+    const slices = getSlices(entries, angle);
     slices.forEach((slice, i) => {
       ctx.beginPath();
       ctx.moveTo(cx, cx);
@@ -75,9 +94,10 @@ export function openLuckyWheel(box) {
       ctx.translate(cx, cx);
       ctx.rotate(mid);
       ctx.fillStyle = '#fff';
-      ctx.font = `${Math.max(11, 15 - pendingTasks.length / 2)}px sans-serif`;
+      ctx.font = `${Math.max(11, 15 - entries.length / 2)}px sans-serif`;
       ctx.textAlign = 'right';
-      const text = slice.task.content.length > 12 ? `${slice.task.content.slice(0, 11)}…` : slice.task.content;
+      const content = String(getText(slice.task) || '');
+      const text = content.length > 12 ? `${content.slice(0, 11)}…` : content;
       ctx.fillText(text, r - 16, 4);
       ctx.restore();
     });
@@ -104,10 +124,14 @@ export function openLuckyWheel(box) {
 
       if (t < 1) requestAnimationFrame(tick);
       else {
-        const finalSector = pickByPointer(pendingTasks, angle);
+        const finalSector = pickByPointer(entries, angle);
         playSound('wheel-stop');
-        root.querySelector('#wheelResult').innerHTML = `<p>🎉 抽中了：${pendingTasks[finalSector].content}</p><button class="btn" id="okBtn">好的</button>`;
-        root.querySelector('#okBtn').addEventListener('click', () => root.querySelector('#wheelResult').innerHTML = '');
+        const picked = entries[finalSector];
+        if (onPicked) onPicked(root, picked);
+        else {
+          root.querySelector('#wheelResult').innerHTML = `<p>🎉 抽中了：${getText(picked)}</p><button class="btn" id="okBtn">好的</button>`;
+          root.querySelector('#okBtn').addEventListener('click', () => root.querySelector('#wheelResult').innerHTML = '');
+        }
       }
     };
 
