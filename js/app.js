@@ -3,6 +3,7 @@ import { renderHome } from './home.js';
 import { renderBoxDetail } from './box-detail.js';
 import { openAIExtractSheet } from './ai-extract.js';
 import { renderSettings } from './settings.js';
+import { renderSmallWorldMap, renderSmallWorldFloor } from './small-world.js';
 
 const app = document.getElementById('app');
 
@@ -77,11 +78,18 @@ export function navigate(hash) {
 
 function route() {
   applyTheme();
-  const [path, param] = (location.hash || '#home').replace('#', '').split('/');
+  const parts = (location.hash || '#home').replace('#', '').split('/').filter(Boolean);
+  const [path, param, subParam] = parts;
   if (path === 'home') renderHome(app);
   else if (path === 'box') renderBoxDetail(app, param);
   else if (path === 'settings') renderSettings(app);
-  else location.hash = '#home';
+  else if (path === 'smallworld') renderSmallWorldMap(app);
+  else if (path === 'sw' && (param === 'pavilion' || param === 'tower') && subParam) {
+    renderSmallWorldFloor(app, param, subParam).catch(() => {
+      showToast('楼层数据加载失败');
+      location.hash = '#smallworld';
+    });
+  } else location.hash = '#home';
 }
 
 function registerServiceWorker() {

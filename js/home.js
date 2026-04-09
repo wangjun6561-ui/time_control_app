@@ -15,7 +15,10 @@ export function renderHome(app) {
   app.innerHTML = `
     <main id="home" class="page">
       <header class="topbar safe-top">
-        <h1>TaskBox</h1>
+        <div class="row gap8 center">
+          <button class="icon-btn sw-entry-btn" id="smallWorldEntry" aria-label="进入小世界">小世界</button>
+          <h1>TaskBox</h1>
+        </div>
         <div class="row gap8">
           <button class="icon-btn" id="aiTopBtn" aria-label="AI提取">✦</button>
           <button class="icon-btn" id="settingsBtn" aria-label="设置">⚙️</button>
@@ -51,6 +54,17 @@ export function renderHome(app) {
   `;
 
   app.querySelectorAll('.box-card').forEach((el) => el.addEventListener('click', () => navigate(`#box/${el.dataset.boxId}`)));
+  app.querySelector('#smallWorldEntry').addEventListener('click', () => {
+    const fx = document.createElement('div');
+    fx.className = 'sw-lightflow';
+    fx.innerHTML = Array.from({ length: 28 }).map(() => '<span></span>').join('');
+    app.appendChild(fx);
+    requestAnimationFrame(() => fx.classList.add('show'));
+    setTimeout(() => {
+      navigate('#smallworld');
+      fx.remove();
+    }, 420);
+  });
   app.querySelector('#settingsBtn').addEventListener('click', () => navigate('#settings'));
   app.querySelector('#aiTopBtn').addEventListener('click', openAIExtractSheet);
 
