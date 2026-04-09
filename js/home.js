@@ -24,6 +24,7 @@ export function renderHome(app) {
       <header class="topbar safe-top">
         <h1>TaskBox</h1>
         <div class="row gap8">
+          <button class="icon-btn" id="smallWorldBtn" aria-label="小世界">🌐</button>
           <button class="icon-btn" id="aiTopBtn" aria-label="AI提取">✦</button>
           <button class="icon-btn" id="settingsBtn" aria-label="设置">⚙️</button>
         </div>
@@ -61,6 +62,7 @@ export function renderHome(app) {
   app.querySelectorAll('.box-card').forEach((el) => {
     el.addEventListener('click', () => navigate(`#box/${el.dataset.boxId}`));
   });
+  app.querySelector('#smallWorldBtn').addEventListener('click', () => navigate('#smallworld'));
   app.querySelector('#settingsBtn').addEventListener('click', () => navigate('#settings'));
   app.querySelector('#aiTopBtn').addEventListener('click', openAIExtractSheet);
 

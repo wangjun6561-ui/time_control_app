@@ -3,6 +3,7 @@ import { renderHome } from './home.js';
 import { renderBoxDetail } from './box-detail.js';
 import { openAIExtractSheet } from './ai-extract.js';
 import { renderSettings } from './settings.js';
+import { renderSmallWorldMap, renderSmallWorldFloor } from './small-world.js';
 
 const app = document.getElementById('app');
 
@@ -83,10 +84,21 @@ export function navigate(hash) {
 
 function route() {
   applyTheme();
-  const [path, param] = (location.hash || '#home').replace('#', '').split('/');
+  const parts = (location.hash || '#home')
+    .replace(/^#/, '')
+    .split('/')
+    .filter(Boolean);
+  const [path, param] = parts;
+
   if (path === 'home') renderHome(app);
   else if (path === 'box') renderBoxDetail(app, param);
   else if (path === 'settings') renderSettings(app);
+  else if (path === 'smallworld') renderSmallWorldMap(app);
+  else if (path === 'sw') {
+    const [, type, floor] = parts;
+    const safeType = ['pavilion', 'tower'].includes(type) ? type : 'pavilion';
+    renderSmallWorldFloor(app, safeType, floor);
+  }
   else {
     location.hash = '#home';
   }
