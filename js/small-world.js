@@ -7,9 +7,13 @@ const SW_CACHE_KEYS = {
   pavilion: 'taskbox_sw_pavilion_cache',
   tower: 'taskbox_sw_tower_cache',
 };
+const SW_RUNTIME_CACHE = {
+  pavilion: null,
+  tower: null,
+};
 
 async function loadJson(path) {
-  const res = await fetch(path, { cache: 'no-store' });
+  const res = await fetch(path);
   if (!res.ok) throw new Error(path);
   const text = await res.text();
   return parseJsonLenient(text);
@@ -84,28 +88,62 @@ function writeCachedData(type, data) {
   localStorage.setItem(SW_CACHE_KEYS[type], JSON.stringify(data));
 }
 
-async function loadSmallWorldSource(type) {
+function setRuntimeCache(type, payload) {
+  SW_RUNTIME_CACHE[type] = payload;
+}
+
+function refreshRemoteInBackground(type, customUrl) {
+  loadJson(customUrl)
+    .then((data) => {
+      writeCachedData(type, data);
+      setRuntimeCache(type, { data, path: customUrl, source: 'remote' });
+    })
+    .catch(() => {});
+}
+
+async function loadSmallWorldSource(type, { preferCache = true } = {}) {
   const settings = getSettings();
   const customUrl = type === 'pavilion' ? settings.pavilionDataUrl : settings.towerDataUrl;
+  const runtime = SW_RUNTIME_CACHE[type];
+
+  if (runtime && (runtime.path === customUrl || (!customUrl && runtime.source !== 'remote'))) return runtime;
+
+  const cached = readCachedData(type);
+  if (preferCache && cached) {
+    const payload = { data: cached, path: customUrl || `cache:${type}`, source: 'cache' };
+    setRuntimeCache(type, payload);
+    if (customUrl) refreshRemoteInBackground(type, customUrl);
+    return payload;
+  }
 
   if (customUrl) {
     try {
       const data = await loadJson(customUrl);
       writeCachedData(type, data);
-      return { data, path: customUrl, source: 'remote' };
+      const payload = { data, path: customUrl, source: 'remote' };
+      setRuntimeCache(type, payload);
+      return payload;
     } catch {
-      const cached = readCachedData(type);
-      if (cached) return { data: cached, path: `cache:${type}`, source: 'cache' };
+      if (cached) {
+        const payload = { data: cached, path: `cache:${type}`, source: 'cache' };
+        setRuntimeCache(type, payload);
+        return payload;
+      }
     }
   }
 
   try {
     const local = await loadJsonAny(type === 'pavilion' ? ['data/pavilion.json', 'pavilion.json'] : ['data/tower.json', 'tower.json']);
     writeCachedData(type, local.data);
-    return { ...local, source: 'local' };
+    const payload = { ...local, source: 'local' };
+    setRuntimeCache(type, payload);
+    return payload;
   } catch {
-    const cached = readCachedData(type);
-    if (cached) return { data: cached, path: `cache:${type}`, source: 'cache' };
+    if (cached) {
+      const payload = { data: cached, path: `cache:${type}`, source: 'cache' };
+      setRuntimeCache(type, payload);
+      return payload;
+    }
     throw new Error(`${type} data load failed`);
   }
 }
@@ -532,6 +570,10 @@ async function uploadSmallWorldToGist(type, json) {
 
 async function saveFloor(_path, json, type) {
   await uploadSmallWorldToGist(type, json);
+  writeCachedData(type, json);
+  const settings = getSettings();
+  const customUrl = type === 'pavilion' ? settings.pavilionDataUrl : settings.towerDataUrl;
+  setRuntimeCache(type, { data: json, path: customUrl || `cache:${type}`, source: 'cache' });
   showToast('已自动回写 Gist');
 }
 
@@ -570,16 +612,14 @@ function showResult(root, item, isPavilion) {
       showToast('请先在设置中填写 Flomo Webhook');
       return;
     }
+    const finalTag = isPavilion ? '#珍宝阁珍宝' : '#弑神塔试炼';
     const markdown = [
-      isPavilion ? '## 珍宝阁抽奖结果' : '## 弑神塔抽奖结果',
-      '',
-      `### ${title}`,
+      `**${title}**`,
       '',
       desc || '无描述',
       '',
-      tags.length ? tags.map((t) => `#${safeText(t)}`).join(' ') : '',
+      [tags.length ? tags.map((t) => `#${safeText(t)}`).join(' ') : '', finalTag].filter(Boolean).join(' '),
       '',
-      '#弑神塔',
     ].filter(Boolean).join('\n');
 
     try {
