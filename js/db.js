@@ -107,12 +107,12 @@ function normalize(data = {}) {
       updatedAt: t.updatedAt || t.createdAt || new Date().toISOString()
     })),
     settings: {
-      deepseekApiKey: data.settings?.deepseekApiKey || 'sk-ddabde5745eb401ea45777acf76b673c',
+      deepseekApiKey: data.settings?.deepseekApiKey || '',
       themeMode: data.settings?.themeMode || 'system',
       soundEnabled: data.settings?.soundEnabled ?? true,
       cloudEnabled: data.settings?.cloudEnabled ?? false,
-      cloudEndpoint: data.settings?.cloudEndpoint || 'v3/b/69d3d1bb856a68218904f116',
-      cloudToken: data.settings?.cloudToken || '$2a$10$xCOfTmFVhdMLbv/wEL/UgeCFzBNO/He3sUcqV6OpwMJ.B/mmmxxaa',
+      cloudEndpoint: data.settings?.cloudEndpoint || '',
+      cloudToken: data.settings?.cloudToken || '',
       pavilionDataUrl: data.settings?.pavilionDataUrl || DEFAULT_PAVILION_URL,
       towerDataUrl: !data.settings?.towerDataUrl || data.settings?.towerDataUrl === LEGACY_TOWER_URL
         ? DEFAULT_TOWER_URL
@@ -153,7 +153,7 @@ function seed() {
   const initial = normalize({
     boxes,
     tasks,
-    settings: { deepseekApiKey: 'sk-ddabde5745eb401ea45777acf76b673c', themeMode: 'system', soundEnabled: true, cloudEnabled: true, cloudEndpoint: 'v3/b/69d3d1bb856a68218904f116', cloudToken: '$2a$10$xCOfTmFVhdMLbv/wEL/UgeCFzBNO/He3sUcqV6OpwMJ.B/mmmxxaa' },
+    settings: { deepseekApiKey: '', themeMode: 'system', soundEnabled: true, cloudEnabled: false, cloudEndpoint: '', cloudToken: '' },
     meta: { updatedAt: now, lastDailyReset: '', lastSummaryExportAt: null },
   });
   localStorage.setItem(STORAGE_KEY, JSON.stringify(initial));
