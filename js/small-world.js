@@ -253,6 +253,60 @@ function normalizeTowerTask(task = {}, idx = 0, floor = 0, fallbackDesc = '') {
   };
 }
 
+function getRawFloor(floorsRaw, floorId, isPavilion) {
+  const idKeyCandidates = isPavilion ? ['level', 'floor', 'tier'] : ['floor', 'level', 'tier'];
+  return floorsRaw.find((f = {}) => idKeyCandidates.some((k) => String(f[k]) === String(floorId)));
+}
+
+function buildEditableItems(floor, rawFloor, isPavilion) {
+  if (isPavilion) {
+    const sourceItems = Array.isArray(rawFloor?.items) && rawFloor.items.length > 0
+      ? rawFloor.items
+      : (Array.isArray(floor.items) && floor.items.length > 0
+        ? floor.items
+        : (floor.sample_item_titles || []).map((title, i) => ({
+          id: floor.sample_item_ids?.[i],
+          title,
+        })));
+    return sourceItems.map((it, i) => normalizePavilionItem(it, i, floor.level, floor.level_description)).filter((it) => it.title);
+  }
+
+  const sourceTasks = Array.isArray(rawFloor?.tasks) && rawFloor.tasks.length > 0
+    ? rawFloor.tasks
+    : (Array.isArray(floor.tasks) && floor.tasks.length > 0
+      ? floor.tasks
+      : (floor.sample_task_names || []).map((name, i) => ({
+        id: floor.sample_task_ids?.[i],
+        name,
+      })));
+  return sourceTasks.map((it, i) => normalizeTowerTask(it, i, floor.floor, floor.floor_desc)).filter((it) => it.name);
+}
+
+function syncEditableItemsToRawFloor(rawFloor, items, floor, isPavilion) {
+  if (!rawFloor || typeof rawFloor !== 'object') return;
+  if (isPavilion) {
+    rawFloor.items = items.map((it, i) => ({
+      ...it,
+      id: it.id || `L${floor.level}_${i + 1}`,
+      title: it.title || '',
+      description: it.description || '',
+      types: Array.isArray(it.types) ? it.types : [],
+    }));
+    rawFloor.items_count = rawFloor.items.length;
+    return;
+  }
+
+  rawFloor.tasks = items.map((it, i) => ({
+    ...it,
+    id: it.id || `F${floor.floor}-${i + 1}`,
+    name: it.name || '',
+    desc: it.desc || '',
+    tags: Array.isArray(it.tags) ? it.tags : [],
+  }));
+  rawFloor.tasks_count = rawFloor.tasks.length;
+  rawFloor.total_tasks = rawFloor.tasks.length;
+}
+
 function pickVaultArray(raw) {
   if (!raw || typeof raw !== 'object') return [];
   const candidates = [
@@ -350,19 +404,13 @@ export async function renderSmallWorldFloor(app, type, floorId) {
     return;
   }
 
-  const items = isPavilion
-    ? ((Array.isArray(floor.items) && floor.items.length > 0)
-      ? floor.items.map((it, i) => normalizePavilionItem(it, i, floor.level, floor.level_description)).filter((it) => it.title)
-      : (floor.sample_item_titles || []).map((title, i) => normalizePavilionItem({
-        id: floor.sample_item_ids?.[i],
-        title,
-      }, i, floor.level, floor.level_description)).filter((it) => it.title))
-    : ((Array.isArray(floor.tasks) && floor.tasks.length > 0)
-      ? floor.tasks.map((it, i) => normalizeTowerTask(it, i, floor.floor, floor.floor_desc)).filter((it) => it.name)
-      : (floor.sample_task_names || []).map((name, i) => normalizeTowerTask({
-        id: floor.sample_task_ids?.[i],
-        name,
-      }, i, floor.floor, floor.floor_desc)).filter((it) => it.name));
+  const rawFloor = getRawFloor(floorsRaw, floorId, isPavilion);
+  if (!rawFloor) {
+    showToast('楼层数据定位失败，请检查 JSON 结构');
+    navigate('#smallworld');
+    return;
+  }
+  const items = buildEditableItems(floor, rawFloor, isPavilion);
 
   app.innerHTML = `
     <main class="page">
@@ -424,8 +472,8 @@ export async function renderSmallWorldFloor(app, type, floorId) {
           dimension: '成长与学习',
           reward_tier: floor.floor,
         });
-        floor.total_tasks = items.length;
       }
+      syncEditableItemsToRawFloor(rawFloor, items, floor, isPavilion);
       saveFloor(path, raw, type)
         .then(() => renderSmallWorldFloor(app, type, floorId))
         .catch(() => showToast('保存失败：请检查 GitHub Token / Gist URL'));
@@ -434,7 +482,7 @@ export async function renderSmallWorldFloor(app, type, floorId) {
 
   app.querySelectorAll('[data-del]').forEach((b) => b.addEventListener('click', () => {
     items.splice(Number(b.dataset.del), 1);
-    if (!isPavilion) floor.total_tasks = items.length;
+    syncEditableItemsToRawFloor(rawFloor, items, floor, isPavilion);
     saveFloor(path, raw, type)
       .then(() => renderSmallWorldFloor(app, type, floorId))
       .catch(() => showToast('删除失败：请检查 GitHub Token / Gist URL'));
@@ -465,6 +513,7 @@ export async function renderSmallWorldFloor(app, type, floorId) {
         priority: payload.priority,
         progress: payload.progress,
       });
+      syncEditableItemsToRawFloor(rawFloor, items, floor, isPavilion);
       saveFloor(path, raw, type)
         .then(() => renderSmallWorldFloor(app, type, floorId))
         .catch(() => showToast('更新失败：请检查 GitHub Token / Gist URL'));
