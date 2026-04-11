@@ -150,6 +150,23 @@ async function tryCloudPull() {
   }
 }
 
+function warmupCriticalModules() {
+  const runWarmup = () => {
+    ROUTE_MODULE_CACHE.smallworld = ROUTE_MODULE_CACHE.smallworld || import('./small-world.js');
+    ROUTE_MODULE_CACHE.smallworld
+      .then(({ prewarmSmallWorldData }) => prewarmSmallWorldData().catch(() => {}))
+      .catch(() => {});
+
+    import('./ai-extract.js').catch(() => {});
+  };
+
+  if ('requestIdleCallback' in window) {
+    window.requestIdleCallback(runWarmup, { timeout: 1800 });
+  } else {
+    setTimeout(runWarmup, 600);
+  }
+}
+
 window.addEventListener('hashchange', route);
 window.addEventListener('DOMContentLoaded', async () => {
   getBoxes();
@@ -157,6 +174,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   setupKeyboardInsets();
   registerServiceWorker();
   route();
+  warmupCriticalModules();
   tryCloudPull();
 });
 

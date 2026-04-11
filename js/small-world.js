@@ -158,6 +158,14 @@ export async function pullSmallWorldData() {
   return { pavilion, tower };
 }
 
+export async function prewarmSmallWorldData() {
+  const [pavilion, tower] = await Promise.all([
+    loadSmallWorldSource('pavilion', { preferCache: true, strictRemote: false }),
+    loadSmallWorldSource('tower', { preferCache: true, strictRemote: false }),
+  ]);
+  return { pavilion, tower };
+}
+
 function mapLevelName(level, name) {
   return `${NUMERALS[level - 1] || level}·${name || ''}`;
 }

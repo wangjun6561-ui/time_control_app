@@ -52,6 +52,28 @@ body {
   .app-container { max-width: 480px; margin: 0 auto; box-shadow: 0 0 40px rgba(0,0,0,0.12); min-height: 100vh; border-radius: 0; }
 }
 
+.skeleton-topbar { margin-bottom: 10px; }
+.skeleton-line, .skeleton-dot, .skeleton-card {
+  position: relative;
+  overflow: hidden;
+  background: rgba(148, 163, 184, 0.2);
+}
+.skeleton-line::after, .skeleton-dot::after, .skeleton-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.55), transparent);
+  animation: skeleton-shimmer 1.25s infinite;
+}
+.skeleton-line { height: 20px; border-radius: 10px; }
+.skeleton-line.w120 { width: 120px; }
+.skeleton-dot { width: 36px; height: 36px; border-radius: 50%; }
+.skeleton-card { height: 110px; border-radius: var(--radius-card); }
+@keyframes skeleton-shimmer {
+  100% { transform: translateX(100%); }
+}
+
 .page { position: relative; min-height: calc(100vh - 24px); }
 .safe-top { padding-top: env(safe-area-inset-top); }
 .safe-bottom { padding-bottom: calc(16px + env(safe-area-inset-bottom)); }
