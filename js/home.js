@@ -1,6 +1,5 @@
 import { getBoxes, getTasks, addTask, addBox } from './db.js';
 import { navigate, openSheet, showToast } from './app.js';
-import { openAIExtractSheet } from './ai-extract.js';
 
 function cardSizeClass(box) {
   if (box.sortOrder === 0) return 'large';
@@ -67,13 +66,18 @@ export function renderHome(app) {
     }, 420);
   });
   app.querySelector('#settingsBtn').addEventListener('click', () => navigate('#settings'));
-  app.querySelector('#aiTopBtn').addEventListener('click', openAIExtractSheet);
+  app.querySelector('#aiTopBtn').addEventListener('click', openAIExtractSheetLazy);
 
   const fabWrap = app.querySelector('#fabWrap');
   app.querySelector('#fabMain').addEventListener('click', () => fabWrap.classList.toggle('open'));
-  app.querySelector('#fabAI').addEventListener('click', openAIExtractSheet);
+  app.querySelector('#fabAI').addEventListener('click', openAIExtractSheetLazy);
   app.querySelector('#fabManual').addEventListener('click', () => openAddTaskSheet(boxes));
   app.querySelector('#fabBox').addEventListener('click', openAddBoxSheet);
+}
+
+async function openAIExtractSheetLazy() {
+  const { openAIExtractSheet } = await import('./ai-extract.js');
+  openAIExtractSheet();
 }
 
 function openAddTaskSheet(boxes) {

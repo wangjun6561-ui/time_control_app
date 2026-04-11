@@ -1,11 +1,8 @@
 import { getBoxes, getSettings, pullDataFromCloud } from './db.js';
 import { renderHome } from './home.js';
-import { renderBoxDetail } from './box-detail.js';
-import { openAIExtractSheet } from './ai-extract.js';
-import { renderSettings } from './settings.js';
-import { renderSmallWorldMap, renderSmallWorldFloor, renderSmallWorldSettings } from './small-world.js';
 
 const app = document.getElementById('app');
+const ROUTE_MODULE_CACHE = {};
 
 export function showToast(msg) {
   const toast = document.getElementById('toast');
@@ -80,17 +77,42 @@ function route() {
   applyTheme();
   const parts = (location.hash || '#home').replace('#', '').split('/').filter(Boolean);
   const [path, param, subParam] = parts;
-  if (path === 'home') renderHome(app);
-  else if (path === 'box') renderBoxDetail(app, param);
-  else if (path === 'settings') renderSettings(app);
-  else if (path === 'smallworld') renderSmallWorldMap(app);
-  else if (path === 'sw-settings') renderSmallWorldSettings(app);
-  else if (path === 'sw' && (param === 'pavilion' || param === 'tower') && subParam) {
-    renderSmallWorldFloor(app, param, subParam).catch(() => {
-      showToast('楼层数据加载失败');
-      location.hash = '#smallworld';
+  if (path === 'home') {
+    renderHome(app);
+    return;
+  }
+  if (path === 'box') {
+    const load = ROUTE_MODULE_CACHE.box || import('./box-detail.js');
+    ROUTE_MODULE_CACHE.box = load;
+    load.then(({ renderBoxDetail }) => renderBoxDetail(app, param));
+    return;
+  }
+  if (path === 'settings') {
+    const load = ROUTE_MODULE_CACHE.settings || import('./settings.js');
+    ROUTE_MODULE_CACHE.settings = load;
+    load.then(({ renderSettings }) => renderSettings(app));
+    return;
+  }
+  if (path === 'smallworld' || path === 'sw-settings' || (path === 'sw' && (param === 'pavilion' || param === 'tower') && subParam)) {
+    const load = ROUTE_MODULE_CACHE.smallworld || import('./small-world.js');
+    ROUTE_MODULE_CACHE.smallworld = load;
+    load.then(({ renderSmallWorldMap, renderSmallWorldFloor, renderSmallWorldSettings }) => {
+      if (path === 'smallworld') {
+        renderSmallWorldMap(app);
+        return;
+      }
+      if (path === 'sw-settings') {
+        renderSmallWorldSettings(app);
+        return;
+      }
+      renderSmallWorldFloor(app, param, subParam).catch(() => {
+        showToast('楼层数据加载失败');
+        location.hash = '#smallworld';
+      });
     });
-  } else location.hash = '#home';
+    return;
+  }
+  location.hash = '#home';
 }
 
 function registerServiceWorker() {
@@ -134,14 +156,15 @@ window.addEventListener('DOMContentLoaded', async () => {
   setupAudioUnlock();
   setupKeyboardInsets();
   registerServiceWorker();
-  await tryCloudPull();
   route();
+  tryCloudPull();
 });
 
 window.TaskBoxApp = {
   navigate,
-  openAIExtractSheet: () => {
+  openAIExtractSheet: async () => {
     if (!checkOnline()) return;
+    const { openAIExtractSheet } = await import('./ai-extract.js');
     openAIExtractSheet();
   },
   showToast,
