@@ -1,5 +1,5 @@
 import { navigate, openSheet, showToast } from './app.js';
-import { getSettings } from './db.js';
+import { getSettings, setSettings } from './db.js';
 import { openWeightedWheel } from './lucky-wheel.js';
 
 const NUMERALS = ['壹', '貳', '參', '肆', '伍', '陸', '柒', '捌'];
@@ -101,7 +101,8 @@ function refreshRemoteInBackground(type, customUrl) {
     .catch(() => {});
 }
 
-async function loadSmallWorldSource(type, { preferCache = true } = {}) {
+async function loadSmallWorldSource(type, options = {}) {
+  const { preferCache = true, strictRemote = false } = options;
   const settings = getSettings();
   const customUrl = type === 'pavilion' ? settings.pavilionDataUrl : settings.towerDataUrl;
   const runtime = SW_RUNTIME_CACHE[type];
@@ -124,6 +125,7 @@ async function loadSmallWorldSource(type, { preferCache = true } = {}) {
       setRuntimeCache(type, payload);
       return payload;
     } catch {
+      if (strictRemote) throw new Error(`${type} remote pull failed`);
       if (cached) {
         const payload = { data: cached, path: `cache:${type}`, source: 'cache' };
         setRuntimeCache(type, payload);
@@ -146,6 +148,14 @@ async function loadSmallWorldSource(type, { preferCache = true } = {}) {
     }
     throw new Error(`${type} data load failed`);
   }
+}
+
+export async function pullSmallWorldData() {
+  const [pavilion, tower] = await Promise.all([
+    loadSmallWorldSource('pavilion', { preferCache: false, strictRemote: true }),
+    loadSmallWorldSource('tower', { preferCache: false, strictRemote: true }),
+  ]);
+  return { pavilion, tower };
 }
 
 function mapLevelName(level, name) {
@@ -347,13 +357,14 @@ export async function renderSmallWorldMap(app) {
       <header class="topbar safe-top">
         <button class="icon-btn" id="swBack">← 返回</button>
         <h2>小世界地图</h2>
-        <span class="muted">smallWorld</span>
+        <button class="icon-btn" id="swSettingsBtn" aria-label="小世界设置">⚙️</button>
       </header>
       <div class="panel" id="swContent"><p>加载中...</p></div>
     </main>
   `;
 
   app.querySelector('#swBack').addEventListener('click', () => navigate('#home'));
+  app.querySelector('#swSettingsBtn').addEventListener('click', () => navigate('#sw-settings'));
 
   try {
     const [pavilionResult, towerResult] = await Promise.allSettled([
@@ -383,6 +394,43 @@ export async function renderSmallWorldMap(app) {
   } catch {
     app.querySelector('#swContent').innerHTML = '<p class="muted">未找到 pavilion.json / tower.json。请放在 data/ 目录或站点根目录。</p>';
   }
+}
+
+export function renderSmallWorldSettings(app) {
+  const settings = getSettings();
+  app.innerHTML = `
+    <main id="sw-settings" class="page">
+      <header class="topbar safe-top">
+        <button class="icon-btn" id="swSettingsBackBtn">← 返回</button>
+        <h2>小世界设置</h2>
+        <span></span>
+      </header>
+      <section class="panel">
+        <p>小世界数据源（支持 Gist Raw URL）</p>
+        <label>pavilion.json URL
+          <input id="swPavilionDataUrl" class="input" value="${settings.pavilionDataUrl || ''}" placeholder="https://.../pavilion.json">
+        </label>
+        <label>tower.json URL
+          <input id="swTowerDataUrl" class="input" value="${settings.towerDataUrl || ''}" placeholder="https://.../tower.json">
+        </label>
+        <div class="row gap8">
+          <button class="btn" id="swPullBtn">拉取数据</button>
+        </div>
+      </section>
+    </main>
+  `;
+
+  app.querySelector('#swSettingsBackBtn').addEventListener('click', () => navigate('#smallworld'));
+  app.querySelector('#swPavilionDataUrl').addEventListener('input', (e) => setSettings({ pavilionDataUrl: e.target.value.trim() }));
+  app.querySelector('#swTowerDataUrl').addEventListener('input', (e) => setSettings({ towerDataUrl: e.target.value.trim() }));
+  app.querySelector('#swPullBtn').addEventListener('click', async () => {
+    try {
+      await pullSmallWorldData();
+      showToast('小世界数据已拉取到本地缓存');
+    } catch {
+      showToast('拉取失败，请检查数据源 URL/网络');
+    }
+  });
 }
 
 export async function renderSmallWorldFloor(app, type, floorId) {
@@ -446,7 +494,15 @@ export async function renderSmallWorldFloor(app, type, floorId) {
       </div>
     `, { height: '35vh' });
   });
-  app.querySelector('#spinBtn').addEventListener('click', () => openSpin(items, isPavilion));
+  app.querySelector('#spinBtn').addEventListener('click', () => openSpin(items, isPavilion, async () => {
+    syncEditableItemsToRawFloor(rawFloor, items, floor, isPavilion);
+    try {
+      await saveFloor(path, raw, type);
+      renderSmallWorldFloor(app, type, floorId);
+    } catch {
+      showToast('同步完成状态失败，请检查 GitHub Token / Gist URL');
+    }
+  }));
 
   addBtn.addEventListener('click', () => {
     openFloorItemEditor({ isPavilion }, (payload) => {
@@ -626,8 +682,8 @@ async function saveFloor(_path, json, type) {
   showToast('已自动回写 Gist');
 }
 
-function openSpin(items, isPavilion) {
-  const list = items.slice();
+function openSpin(items, isPavilion, onComplete) {
+  const list = items.filter((it) => !it.isCompleted && Number(it.progress || 0) < 100);
   if (list.length === 0) {
     showToast('当前楼层暂无内容，无法抽奖');
     return;
@@ -637,11 +693,11 @@ function openSpin(items, isPavilion) {
     entries: list,
     color: isPavilion ? 'reward' : 'punish',
     getText: (item) => (isPavilion ? item.title : item.name),
-    onPicked: (root, picked) => showResult(root, picked, isPavilion),
+    onPicked: (root, picked) => showResult(root, picked, isPavilion, onComplete),
   });
 }
 
-function showResult(root, item, isPavilion) {
+function showResult(root, item, isPavilion, onComplete) {
   const title = safeText(isPavilion ? item.title : item.name);
   const desc = safeText(isPavilion ? item.description : item.desc);
   const tags = (isPavilion ? item.types : item.tags) || [];
@@ -681,6 +737,10 @@ function showResult(root, item, isPavilion) {
         }),
       });
       if (!res.ok) throw new Error('flomo_failed');
+      item.progress = 100;
+      item.isCompleted = true;
+      item.completedAt = new Date().toISOString();
+      onComplete?.(item);
       showToast('已发送到 Flomo');
     } catch {
       showToast('发送失败，请检查 Flomo Webhook');

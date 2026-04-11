@@ -50,13 +50,6 @@ export function renderSettings(app) {
       </section>
 
       <section class="panel">
-        <p>小世界数据源（可选，支持 Gist Raw URL）</p>
-        <label>pavilion.json URL
-          <input id="pavilionDataUrl" class="input" value="${settings.pavilionDataUrl || ''}" placeholder="https://.../pavilion.json">
-        </label>
-        <label>tower.json URL
-          <input id="towerDataUrl" class="input" value="${settings.towerDataUrl || ''}" placeholder="https://.../tower.json">
-        </label>
         <label>Flomo Webhook（用于发送抽奖结果）
           <input id="flomoWebhook" class="input" value="${settings.flomoWebhook || ''}" placeholder="https://flomoapp.com/iwh/...">
         </label>
@@ -98,8 +91,6 @@ export function renderSettings(app) {
   app.querySelector('#cloudEnabled').addEventListener('change', (e) => setSettings({ cloudEnabled: e.target.checked }));
   app.querySelector('#cloudEndpoint').addEventListener('input', (e) => setSettings({ cloudEndpoint: e.target.value.trim() }));
   app.querySelector('#cloudToken').addEventListener('input', (e) => setSettings({ cloudToken: e.target.value.trim() }));
-  app.querySelector('#pavilionDataUrl').addEventListener('input', (e) => setSettings({ pavilionDataUrl: e.target.value.trim() }));
-  app.querySelector('#towerDataUrl').addEventListener('input', (e) => setSettings({ towerDataUrl: e.target.value.trim() }));
   app.querySelector('#flomoWebhook').addEventListener('input', (e) => setSettings({ flomoWebhook: e.target.value.trim() }));
   app.querySelector('#githubToken').addEventListener('input', (e) => setSettings({ githubToken: e.target.value.trim() }));
 

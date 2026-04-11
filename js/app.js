@@ -3,7 +3,7 @@ import { renderHome } from './home.js';
 import { renderBoxDetail } from './box-detail.js';
 import { openAIExtractSheet } from './ai-extract.js';
 import { renderSettings } from './settings.js';
-import { renderSmallWorldMap, renderSmallWorldFloor } from './small-world.js';
+import { renderSmallWorldMap, renderSmallWorldFloor, renderSmallWorldSettings } from './small-world.js';
 
 const app = document.getElementById('app');
 
@@ -84,6 +84,7 @@ function route() {
   else if (path === 'box') renderBoxDetail(app, param);
   else if (path === 'settings') renderSettings(app);
   else if (path === 'smallworld') renderSmallWorldMap(app);
+  else if (path === 'sw-settings') renderSmallWorldSettings(app);
   else if (path === 'sw' && (param === 'pavilion' || param === 'tower') && subParam) {
     renderSmallWorldFloor(app, param, subParam).catch(() => {
       showToast('楼层数据加载失败');
