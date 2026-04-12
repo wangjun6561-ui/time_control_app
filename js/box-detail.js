@@ -93,12 +93,13 @@ function taskItem(t) {
   const overdue = t.dueDate && !t.isCompleted && new Date(t.dueDate) < new Date();
   const color = getPriorityColor(t.priority ?? 0);
   const taskProgress = Math.max(0, Math.min(100, Number(t.progress) || 0));
+  const hasNote = Boolean((t.note || '').trim());
   return `
     <article class="task-item ${t.isCompleted ? 'done' : ''}" data-id="${t.id}">
       <div class="task-main" data-main="1">
         <button class="check ${t.isCompleted ? 'checked' : ''}" style="--check-color:${color}">${t.isCompleted ? '✓' : ''}</button>
         <button class="task-content" data-action="edit">
-          <span>${t.content}</span>
+          <span>${t.content}${hasNote ? ' <small class="task-note-icon" title="已添加备注">📝</small>' : ''}</span>
           ${t.dueDate ? `<small class="${overdue ? 'overdue' : ''}">${new Date(t.dueDate).toLocaleDateString()}</small>` : ''}
           <div class="mini-progress"><span style="width:${taskProgress}%; background:${color}"></span></div>
         </button>

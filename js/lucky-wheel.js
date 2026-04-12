@@ -66,6 +66,7 @@ export function openWeightedWheel({
   canvas.height = size;
 
   let angle = 0;
+  let spinning = false;
 
   const draw = () => {
     ctx.clearRect(0, 0, size, size);
@@ -81,6 +82,7 @@ export function openWeightedWheel({
     }
 
     const slices = getSlices(entries, angle);
+    const shouldDrawText = entries.length <= 40;
     slices.forEach((slice, i) => {
       ctx.beginPath();
       ctx.moveTo(cx, cx);
@@ -89,17 +91,19 @@ export function openWeightedWheel({
       ctx.fillStyle = `hsla(${(i * 60) % 360} 80% 60% / ${0.8 - (i % 3) * 0.15})`;
       ctx.fill();
 
-      const mid = (slice.start + slice.end) / 2;
-      ctx.save();
-      ctx.translate(cx, cx);
-      ctx.rotate(mid);
-      ctx.fillStyle = '#fff';
-      ctx.font = `${Math.max(11, 15 - entries.length / 2)}px sans-serif`;
-      ctx.textAlign = 'right';
-      const content = String(getText(slice.task) || '');
-      const text = content.length > 12 ? `${content.slice(0, 11)}…` : content;
-      ctx.fillText(text, r - 16, 4);
-      ctx.restore();
+      if (shouldDrawText) {
+        const mid = (slice.start + slice.end) / 2;
+        ctx.save();
+        ctx.translate(cx, cx);
+        ctx.rotate(mid);
+        ctx.fillStyle = '#fff';
+        ctx.font = `${Math.max(11, 15 - entries.length / 2)}px sans-serif`;
+        ctx.textAlign = 'right';
+        const content = String(getText(slice.task) || '');
+        const text = content.length > 12 ? `${content.slice(0, 11)}…` : content;
+        ctx.fillText(text, r - 16, 4);
+        ctx.restore();
+      }
     });
 
     ctx.fillStyle = '#fff';
@@ -111,6 +115,11 @@ export function openWeightedWheel({
   draw();
 
   root.querySelector('#spinBtn').addEventListener('click', () => {
+    if (spinning || !entries.length) return;
+    spinning = true;
+    const spinBtn = root.querySelector('#spinBtn');
+    spinBtn.disabled = true;
+    spinBtn.textContent = '抽取中...';
     const duration = 3000 + Math.random() * 2000;
     const start = performance.now();
     const baseAngle = angle;
@@ -126,11 +135,20 @@ export function openWeightedWheel({
       else {
         const finalSector = pickByPointer(entries, angle);
         playSound('wheel-stop');
-        const picked = entries[finalSector];
-        if (onPicked) onPicked(root, picked);
-        else {
-          root.querySelector('#wheelResult').innerHTML = `<p>🎉 抽中了：${getText(picked)}</p><button class="btn" id="okBtn">好的</button>`;
-          root.querySelector('#okBtn').addEventListener('click', () => root.querySelector('#wheelResult').innerHTML = '');
+        const safeIndex = Number.isInteger(finalSector) && finalSector >= 0 && finalSector < entries.length ? finalSector : 0;
+        const picked = entries[safeIndex];
+        try {
+          if (onPicked) onPicked(root, picked);
+          else {
+            root.querySelector('#wheelResult').innerHTML = `<p>🎉 抽中了：${getText(picked)}</p><button class="btn" id="okBtn">好的</button>`;
+            root.querySelector('#okBtn').addEventListener('click', () => root.querySelector('#wheelResult').innerHTML = '');
+          }
+        } catch {
+          root.querySelector('#wheelResult').innerHTML = `<p>🎉 抽中了：${getText(picked) || '（结果加载失败，请重试）'}</p>`;
+        } finally {
+          spinning = false;
+          spinBtn.disabled = false;
+          spinBtn.textContent = '开始';
         }
       }
     };

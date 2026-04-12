@@ -130,6 +130,7 @@ h1,h2,h3 { margin: 0; font-size: 18px; }
 .check.checked { background: var(--check-color); color: #fff; }
 .task-content { text-align: left; background: transparent; min-height: 44px; }
 .task-content span { display:block; font-size: 15px; }
+.task-note-icon { font-size: 12px; opacity: .85; margin-left: 4px; vertical-align: middle; }
 .task-content small { font-size: 13px; color: var(--text-secondary); }
 .mini-progress { height: 5px; border-radius: 999px; background: rgba(0,0,0,.08); margin-top: 6px; overflow: hidden; }
 .mini-progress span { display:block; height:100%; border-radius: 999px; }
